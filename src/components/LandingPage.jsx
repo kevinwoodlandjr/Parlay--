@@ -28,7 +28,7 @@ export default function LandingPage({ onAuth }) {
           <div className="flex items-center gap-2.5">
             <Logo size={32} />
             <h1 className="text-lg font-extrabold text-fg tracking-tight">
-              PARLAY<span className="text-accent">.</span>
+              LAYUP<span className="text-accent">!</span>
             </h1>
           </div>
           <div className="flex items-center gap-3">
@@ -184,7 +184,7 @@ export default function LandingPage({ onAuth }) {
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
             <div className="flex items-center gap-2">
               <Logo size={24} />
-              <span className="text-fg font-bold text-sm">PARLAY<span className="text-accent">.</span></span>
+              <span className="text-fg font-bold text-sm">LAYUP<span className="text-accent">!</span></span>
             </div>
             <div className="flex items-center gap-6">
               <a href="#features" className="text-fg-subtle text-xs hover:text-fg transition-colors">Features</a>
@@ -192,7 +192,7 @@ export default function LandingPage({ onAuth }) {
               <a href="#contact" className="text-fg-subtle text-xs hover:text-fg transition-colors">Contact</a>
             </div>
             <p className="text-fg-subtle text-xs">
-              Parlay. — For entertainment purposes only
+              LayUp! — For entertainment purposes only
             </p>
           </div>
         </div>
@@ -242,7 +242,7 @@ function DemoPreview() {
         <div className="px-5 py-3 border-b border-border flex items-center justify-between bg-overlay">
           <div className="flex items-center gap-2">
             <div className="w-6 h-6 bg-gradient-to-br from-accent to-orange-500 rounded-md" />
-            <span className="text-fg font-bold text-sm">PARLAY.</span>
+            <span className="text-fg font-bold text-sm">LAYUP!</span>
           </div>
           <div className="flex items-center gap-2">
             {legs.length > 0 && (

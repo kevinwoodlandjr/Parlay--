@@ -27,7 +27,7 @@ export default function Header({ onProfileClick, onAuthClick, onHomeClick }) {
           <Logo size={32} />
           <div className="leading-none">
             <h1 className="text-lg font-extrabold text-fg tracking-tight">
-              PARLAY<span className="text-accent">.</span>
+              LAYUP<span className="text-accent">!</span>
             </h1>
           </div>
         </button>

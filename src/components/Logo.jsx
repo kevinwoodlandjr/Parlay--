@@ -18,7 +18,7 @@ export default function Logo({ size = 32, className = '' }) {
   return (
     <img
       src="/logo.png"
-      alt="Parlay"
+      alt="LayUp!"
       className={`rounded-lg ${className}`}
       style={{ width: size, height: size }}
       onError={() => setUseFallback(true)}
