@@ -94,6 +94,7 @@ function AppContent() {
       <Header
         onProfileClick={() => setPage('profile')}
         onAuthClick={() => setPage('auth')}
+        onHomeClick={() => setPage('landing')}
       />
 
       {/* Shared parlay overlay */}

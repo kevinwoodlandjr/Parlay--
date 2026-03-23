@@ -1,26 +1,36 @@
+import { useState } from 'react'
+import { createPortal } from 'react-dom'
 import { useParlay } from '../hooks/useParlayStore'
 import { useAuth } from '../hooks/useAuth'
 import { useTheme } from '../hooks/useTheme'
 import { User, Sun, Moon } from 'lucide-react'
 import Logo from './Logo'
 
-export default function Header({ onProfileClick, onAuthClick }) {
+export default function Header({ onProfileClick, onAuthClick, onHomeClick }) {
   const { legs } = useParlay()
   const { user, profile } = useAuth()
   const { theme, toggleTheme } = useTheme()
+  const [showConfirm, setShowConfirm] = useState(false)
+
+  const handleBrandClick = () => {
+    setShowConfirm(true)
+  }
 
   return (
     <header className="sticky top-0 z-50 bg-bg/95 backdrop-blur-md border-b border-border">
       <div className="max-w-6xl mx-auto px-4 h-14 flex items-center justify-between">
-        {/* Brand */}
-        <div className="flex items-center gap-2.5">
+        {/* Brand — clickable */}
+        <button
+          onClick={handleBrandClick}
+          className="flex items-center gap-2.5 cursor-pointer hover:opacity-80 transition-opacity"
+        >
           <Logo size={32} />
           <div className="leading-none">
             <h1 className="text-lg font-extrabold text-fg tracking-tight">
               PARLAY<span className="text-accent">.</span>
             </h1>
           </div>
-        </div>
+        </button>
 
         {/* Right side */}
         <div className="flex items-center gap-3">
@@ -66,6 +76,37 @@ export default function Header({ onProfileClick, onAuthClick }) {
           )}
         </div>
       </div>
+
+      {/* Confirmation dialog */}
+      {showConfirm && createPortal(
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setShowConfirm(false)} />
+          <div className="relative bg-surface border border-border rounded-2xl w-full max-w-xs overflow-hidden shadow-2xl">
+            <div className="p-6 text-center">
+              <div className="w-12 h-12 bg-overlay rounded-xl flex items-center justify-center mx-auto mb-4">
+                <Logo size={28} />
+              </div>
+              <h3 className="text-fg font-bold text-base">Proceed to home?</h3>
+              <p className="text-fg-muted text-sm mt-2">You'll leave the parlay builder and return to the home page.</p>
+              <div className="flex gap-3 mt-6">
+                <button
+                  onClick={() => setShowConfirm(false)}
+                  className="flex-1 bg-accent hover:bg-accent-hover text-white font-semibold py-2.5 rounded-xl cursor-pointer transition-colors text-sm"
+                >
+                  Yes, Stay
+                </button>
+                <button
+                  onClick={() => { setShowConfirm(false); onHomeClick?.() }}
+                  className="flex-1 bg-red-500/10 hover:bg-red-500/20 text-red-500 border border-red-500/20 font-semibold py-2.5 rounded-xl cursor-pointer transition-colors text-sm"
+                >
+                  No, Leave
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
     </header>
   )
 }
