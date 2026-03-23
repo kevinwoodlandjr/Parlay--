@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { ParlayProvider, useParlay } from './hooks/useParlayStore'
 import { AuthProvider, useAuth } from './hooks/useAuth'
+import { ThemeProvider } from './hooks/useTheme'
 import { formatOdds } from './utils/odds'
 import Header from './components/Header'
 import GameCard from './components/GameCard'
@@ -99,17 +100,17 @@ function AppContent() {
         <div className="flex items-center justify-between mb-5">
           <button
             onClick={() => goToDay(-1)}
-            className="p-2 rounded-lg bg-white/[0.04] hover:bg-white/[0.08] text-white/50 hover:text-white transition-colors cursor-pointer"
+            className="p-2 rounded-lg bg-overlay hover:bg-overlay-hover text-fg-muted hover:text-fg transition-colors cursor-pointer"
           >
             <ChevronLeft size={18} />
           </button>
 
           <div className="text-center">
-            <h2 className="text-white font-bold text-lg leading-tight">
+            <h2 className="text-fg font-bold text-lg leading-tight">
               {isToday ? "Today's Games" : format(selectedDate, 'EEEE')}
             </h2>
             <div className="flex items-center justify-center gap-2 mt-0.5">
-              <p className="text-white/35 text-sm flex items-center gap-1.5">
+              <p className="text-fg-subtle text-sm flex items-center gap-1.5">
                 <Calendar size={12} />
                 {format(selectedDate, 'MMM d, yyyy')}
               </p>
@@ -126,7 +127,7 @@ function AppContent() {
 
           <button
             onClick={() => goToDay(1)}
-            className="p-2 rounded-lg bg-white/[0.04] hover:bg-white/[0.08] text-white/50 hover:text-white transition-colors cursor-pointer"
+            className="p-2 rounded-lg bg-overlay hover:bg-overlay-hover text-fg-muted hover:text-fg transition-colors cursor-pointer"
           >
             <ChevronRight size={18} />
           </button>
@@ -139,27 +140,27 @@ function AppContent() {
             {loading ? (
               <div className="flex flex-col items-center justify-center py-20 gap-3">
                 <Loader2 className="animate-spin text-accent" size={28} />
-                <p className="text-white/30 text-sm">Loading games...</p>
+                <p className="text-fg-subtle text-sm">Loading games...</p>
               </div>
             ) : error ? (
-              <div className="flex items-center justify-center py-16 gap-3 text-white/40">
+              <div className="flex items-center justify-center py-16 gap-3 text-fg-muted">
                 <AlertCircle size={18} />
                 <p className="text-sm">{error}</p>
               </div>
             ) : games.length === 0 ? (
               <div className="text-center py-20">
-                <div className="w-16 h-16 bg-white/[0.03] rounded-2xl flex items-center justify-center mx-auto mb-4">
+                <div className="w-16 h-16 bg-overlay rounded-2xl flex items-center justify-center mx-auto mb-4">
                   <span className="text-3xl">🏀</span>
                 </div>
-                <p className="text-white/50 font-semibold">No games scheduled</p>
-                <p className="text-white/25 text-sm mt-1">Try checking another date</p>
+                <p className="text-fg-muted font-semibold">No games scheduled</p>
+                <p className="text-fg-subtle text-sm mt-1">Try checking another date</p>
               </div>
             ) : (
               <div className="space-y-2">
                 {games.map(game => (
                   <GameCard key={game.id} game={game} />
                 ))}
-                <p className="text-[10px] text-white/15 text-center pt-3 pb-1">
+                <p className="text-[10px] text-fg-subtle text-center pt-3 pb-1">
                   Estimated odds for planning purposes • Tap any cell to add to your parlay
                 </p>
               </div>
@@ -186,9 +187,9 @@ function AppContent() {
             className="absolute inset-0 bg-black/70 backdrop-blur-sm"
             onClick={() => setMobileSlipOpen(false)}
           />
-          <div className="absolute bottom-0 left-0 right-0 max-h-[85vh] overflow-y-auto bg-[#0d0d1a] rounded-t-2xl border-t border-white/10">
+          <div className="absolute bottom-0 left-0 right-0 max-h-[85vh] overflow-y-auto bg-bg rounded-t-2xl border-t border-border">
             <div className="p-4 pb-6">
-              <div className="w-10 h-1 bg-white/20 rounded-full mx-auto mb-4" />
+              <div className="w-10 h-1 bg-fg-subtle rounded-full mx-auto mb-4" />
               <ParlaySlip onAuthRequired={() => { setMobileSlipOpen(false); setPage('auth') }} />
             </div>
           </div>
@@ -196,8 +197,8 @@ function AppContent() {
       )}
 
       {/* Footer */}
-      <footer className="border-t border-white/[0.04] py-4 mt-6 mb-16 xl:mb-0">
-        <p className="text-center text-white/15 text-[11px]">
+      <footer className="border-t border-border py-4 mt-6 mb-16 xl:mb-0">
+        <p className="text-center text-fg-subtle text-[11px]">
           Parlay — NBA Parlay Generator • Estimated odds for entertainment purposes
         </p>
       </footer>
@@ -217,7 +218,7 @@ function MobileSlipToggle({ open, onToggle }) {
         className="w-full bg-accent hover:bg-accent-hover text-white py-3 px-4 flex items-center justify-between font-semibold cursor-pointer shadow-[0_-4px_20px_rgba(0,0,0,0.4)] transition-colors"
       >
         <span className="flex items-center gap-2.5">
-          <span className="w-6 h-6 bg-white/20 rounded-full flex items-center justify-center text-xs font-bold">
+          <span className="w-6 h-6 bg-fg-subtle rounded-full flex items-center justify-center text-xs font-bold">
             {legs.length}
           </span>
           <span className="text-sm">View Parlay Slip</span>
@@ -232,10 +233,12 @@ function MobileSlipToggle({ open, onToggle }) {
 
 export default function App() {
   return (
-    <AuthProvider>
-      <ParlayProvider>
-        <AppContent />
-      </ParlayProvider>
-    </AuthProvider>
+    <ThemeProvider>
+      <AuthProvider>
+        <ParlayProvider>
+          <AppContent />
+        </ParlayProvider>
+      </AuthProvider>
+    </ThemeProvider>
   )
 }

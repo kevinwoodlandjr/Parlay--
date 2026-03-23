@@ -6,7 +6,7 @@ export default function TeamLogo({ src, abbr, size = 32, className = '' }) {
   if (!src || failed) {
     return (
       <div
-        className={`flex items-center justify-center rounded-full bg-white/10 text-white/60 font-bold shrink-0 ${className}`}
+        className={`flex items-center justify-center rounded-full bg-overlay text-fg-muted font-bold shrink-0 ${className}`}
         style={{ width: size, height: size, minWidth: size, fontSize: size * 0.35 }}
       >
         {abbr}

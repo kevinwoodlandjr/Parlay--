@@ -1,21 +1,22 @@
 import { useParlay } from '../hooks/useParlayStore'
 import { useAuth } from '../hooks/useAuth'
-import { Zap, User } from 'lucide-react'
+import { useTheme } from '../hooks/useTheme'
+import { User, Sun, Moon } from 'lucide-react'
+import Logo from './Logo'
 
 export default function Header({ onProfileClick, onAuthClick }) {
   const { legs } = useParlay()
   const { user, profile } = useAuth()
+  const { theme, toggleTheme } = useTheme()
 
   return (
-    <header className="sticky top-0 z-50 bg-[#0d0d1a]/95 backdrop-blur-md border-b border-white/[0.06]">
+    <header className="sticky top-0 z-50 bg-bg/95 backdrop-blur-md border-b border-border">
       <div className="max-w-6xl mx-auto px-4 h-14 flex items-center justify-between">
         {/* Brand */}
         <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 bg-gradient-to-br from-accent to-orange-500 rounded-lg flex items-center justify-center">
-            <Zap size={18} className="text-white" fill="white" />
-          </div>
+          <Logo size={32} />
           <div className="leading-none">
-            <h1 className="text-lg font-extrabold text-white tracking-tight">
+            <h1 className="text-lg font-extrabold text-fg tracking-tight">
               PARLAY<span className="text-accent">.</span>
             </h1>
           </div>
@@ -34,6 +35,15 @@ export default function Header({ onProfileClick, onAuthClick }) {
             </div>
           )}
 
+          {/* Theme toggle */}
+          <button
+            onClick={toggleTheme}
+            className="w-8 h-8 rounded-lg bg-overlay hover:bg-overlay-hover border border-border flex items-center justify-center cursor-pointer transition-colors text-fg-muted hover:text-fg"
+            title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
+          >
+            {theme === 'dark' ? <Sun size={15} /> : <Moon size={15} />}
+          </button>
+
           {/* Profile / Auth button */}
           {user ? (
             <button
@@ -48,7 +58,7 @@ export default function Header({ onProfileClick, onAuthClick }) {
           ) : (
             <button
               onClick={onAuthClick}
-              className="flex items-center gap-1.5 bg-white/[0.05] hover:bg-white/[0.08] border border-white/[0.08] text-white/60 hover:text-white px-3 py-1.5 rounded-lg text-xs font-semibold cursor-pointer transition-colors"
+              className="flex items-center gap-1.5 bg-overlay hover:bg-overlay-hover border border-border text-fg-muted hover:text-fg px-3 py-1.5 rounded-lg text-xs font-semibold cursor-pointer transition-colors"
             >
               <User size={13} />
               Sign In

@@ -27,6 +27,24 @@ function parlayReducer(state, action) {
         legs: [...filtered, { ...action.payload, id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}` }],
       }
     }
+    case 'TOGGLE_LEG': {
+      // If exact leg exists, remove it (toggle off)
+      const existing = state.legs.find(
+        l => l.gameId === action.payload.gameId && l.type === action.payload.type && l.pick === action.payload.pick
+      )
+      if (existing) {
+        return { ...state, legs: state.legs.filter(l => l.id !== existing.id) }
+      }
+
+      // Otherwise, replace same game+type and add (same as ADD_LEG)
+      const filtered = state.legs.filter(
+        l => !(l.gameId === action.payload.gameId && l.type === action.payload.type)
+      )
+      return {
+        ...state,
+        legs: [...filtered, { ...action.payload, id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}` }],
+      }
+    }
     case 'REMOVE_LEG':
       return {
         ...state,
@@ -73,6 +91,10 @@ export function ParlayProvider({ children }) {
     dispatch({ type: 'SET_WAGER', payload: amount })
   }, [])
 
+  const toggleLeg = useCallback((leg) => {
+    dispatch({ type: 'TOGGLE_LEG', payload: leg })
+  }, [])
+
   const loadParlay = useCallback((data) => {
     dispatch({ type: 'LOAD_PARLAY', payload: data })
   }, [])
@@ -86,6 +108,7 @@ export function ParlayProvider({ children }) {
     parlayOdds,
     potentialPayout,
     addLeg,
+    toggleLeg,
     removeLeg,
     updateLegOdds,
     clearLegs,

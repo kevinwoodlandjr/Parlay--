@@ -53,6 +53,28 @@ export function generateShareUrl(legs, wager) {
   return url.toString()
 }
 
+// Format parlay as readable text for clipboard
+export function formatParlayText(legs, wager, parlayOdds, potentialPayout) {
+  const lines = [
+    `PARLAY (${legs.length} Legs) | ${parlayOdds > 0 ? '+' : ''}${parlayOdds}`,
+    '─'.repeat(30),
+  ]
+
+  legs.forEach(leg => {
+    const matchup = leg.game
+      ? `${leg.game.awayTeam?.abbreviation} @ ${leg.game.homeTeam?.abbreviation}`
+      : ''
+    lines.push(`${leg.description} | ${matchup}`)
+  })
+
+  lines.push('─'.repeat(30))
+  lines.push(`Wager: $${wager.toFixed(2)} | Payout: $${potentialPayout.toFixed(2)}`)
+  lines.push('')
+  lines.push('Built with PARLAY.')
+
+  return lines.join('\n')
+}
+
 // Copy text to clipboard
 export async function copyToClipboard(text) {
   try {
