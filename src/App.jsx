@@ -9,6 +9,7 @@ import ParlaySlip from './components/ParlaySlip'
 import SharedParlayView from './components/SharedParlayView'
 import AuthPage from './components/AuthPage'
 import ProfilePage from './components/ProfilePage'
+import LandingPage from './components/LandingPage'
 import { fetchGames } from './data/nbaApi'
 import { format, addDays, subDays, isToday as checkIsToday } from 'date-fns'
 import { ChevronLeft, ChevronRight, Loader2, AlertCircle, Calendar } from 'lucide-react'
@@ -20,15 +21,21 @@ function AppContent() {
   const [selectedDate, setSelectedDate] = useState(new Date())
   const [sharedParlay, setSharedParlay] = useState(null)
   const [mobileSlipOpen, setMobileSlipOpen] = useState(false)
-  const [page, setPage] = useState('home') // home | auth | profile
+  const [page, setPage] = useState('landing') // landing | home | auth | profile
   const { user } = useAuth()
 
-  // Redirect back to home after login
+  // Route authenticated users to home, unauthenticated to landing
   useEffect(() => {
-    if (user && page === 'auth') {
-      setPage('home')
+    if (user) {
+      if (page === 'auth' || page === 'landing') {
+        setPage('home')
+      }
+    } else {
+      if (page === 'home' || page === 'profile') {
+        setPage('landing')
+      }
     }
-  }, [user, page])
+  }, [user])
 
   // Check for shared parlay in URL
   useEffect(() => {
@@ -39,8 +46,9 @@ function AppContent() {
     }
   }, [])
 
-  // Fetch games when date changes
+  // Fetch games when date changes (only when on home page)
   useEffect(() => {
+    if (page !== 'home') return
     let cancelled = false
     setLoading(true)
     setError(null)
@@ -60,7 +68,7 @@ function AppContent() {
       })
 
     return () => { cancelled = true }
-  }, [selectedDate])
+  }, [selectedDate, page])
 
   const goToDay = (offset) => {
     setSelectedDate(prev => offset > 0 ? addDays(prev, offset) : subDays(prev, Math.abs(offset)))
@@ -69,8 +77,12 @@ function AppContent() {
   const isToday = checkIsToday(selectedDate)
 
   // Page routing
+  if (page === 'landing') {
+    return <LandingPage onAuth={() => setPage('auth')} />
+  }
+
   if (page === 'auth') {
-    return <AuthPage onBack={() => setPage('home')} />
+    return <AuthPage onBack={() => setPage(user ? 'home' : 'landing')} />
   }
 
   if (page === 'profile') {
@@ -161,7 +173,7 @@ function AppContent() {
                   <GameCard key={game.id} game={game} />
                 ))}
                 <p className="text-[10px] text-fg-subtle text-center pt-3 pb-1">
-                  Estimated odds for planning purposes • Tap any cell to add to your parlay
+                  Odds for planning purposes • Tap any cell to add to your parlay
                 </p>
               </div>
             )}
@@ -199,7 +211,7 @@ function AppContent() {
       {/* Footer */}
       <footer className="border-t border-border py-4 mt-6 mb-16 xl:mb-0">
         <p className="text-center text-fg-subtle text-[11px]">
-          Parlay — NBA Parlay Generator • Estimated odds for entertainment purposes
+          Parlay — NBA Parlay Generator • Odds for entertainment purposes
         </p>
       </footer>
     </div>

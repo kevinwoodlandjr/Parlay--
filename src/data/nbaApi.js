@@ -149,6 +149,7 @@ function transformEvent(event) {
     date: format(gameTime, 'yyyy-MM-dd'),
     status: 'scheduled',
     time: timeStr,
+    commenceTime: gameTime.getTime(),
     homeTeam,
     awayTeam,
     homeScore: 0,
@@ -172,7 +173,7 @@ export async function fetchGames(date) {
         const dayGames = events
           .map(transformEvent)
           .filter(g => g.date === dateStr)
-          .sort((a, b) => a.time.localeCompare(b.time))
+          .sort((a, b) => a.commenceTime - b.commenceTime)
 
         if (dayGames.length > 0) {
           return dayGames
