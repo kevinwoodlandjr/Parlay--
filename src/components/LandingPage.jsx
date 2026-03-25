@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useTheme } from '../hooks/useTheme'
-import { Zap, TrendingUp, Share2, Shield, Sparkles, Sun, Moon, ChevronRight, Mail, ArrowRight, BarChart3, Users, ExternalLink, X, RotateCcw } from 'lucide-react'
+import { Zap, TrendingUp, Share2, Shield, Sparkles, Sun, Moon, ChevronRight, Mail, ArrowRight, BarChart3, Users, ExternalLink, X, RotateCcw, Loader2 } from 'lucide-react'
+import { submitContactForm } from '../lib/contactService'
 import Logo from './Logo'
 import TeamLogo from './TeamLogo'
 import { getTeamLogo } from '../data/teams'
@@ -543,12 +544,36 @@ function DemoOddsCell({ selected, highlighted, onClick, top, bottom, isMl }) {
   )
 }
 
+{/* Contact form messages are stored in Supabase contact_messages table.
+   A Supabase Edge Function should forward new messages to Kevin.woodland@tryvenato.com */}
 function ContactForm() {
   const [submitted, setSubmitted] = useState(false)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState(null)
+  const [name, setName] = useState('')
+  const [email, setEmail] = useState('')
+  const [subject, setSubject] = useState('')
+  const [message, setMessage] = useState('')
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault()
+    setError(null)
+    setLoading(true)
+
+    const result = await submitContactForm({ name, email, subject, message })
+
+    setLoading(false)
+
+    if (result.error) {
+      setError(result.error)
+      return
+    }
+
     setSubmitted(true)
+    setName('')
+    setEmail('')
+    setSubject('')
+    setMessage('')
   }
 
   if (submitted) {
@@ -560,7 +585,7 @@ function ContactForm() {
         <h4 className="text-fg font-bold text-lg">Message Sent!</h4>
         <p className="text-fg-muted text-sm mt-2">We'll get back to you as soon as possible.</p>
         <button
-          onClick={() => setSubmitted(false)}
+          onClick={() => { setSubmitted(false); setError(null) }}
           className="text-accent text-sm font-semibold mt-4 hover:underline cursor-pointer"
         >
           Send another message
@@ -571,11 +596,18 @@ function ContactForm() {
 
   return (
     <form onSubmit={handleSubmit} className="bg-surface rounded-xl border border-border p-6 space-y-4">
+      {error && (
+        <div className="px-4 py-3 rounded-lg bg-accent/10 border border-accent/20 text-accent text-sm">
+          {error}
+        </div>
+      )}
       <div className="grid sm:grid-cols-2 gap-4">
         <div>
           <label className="block text-fg-muted text-xs font-semibold uppercase tracking-wider mb-1.5">Name</label>
           <input
             type="text"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
             placeholder="Your name"
             className="w-full bg-overlay border border-border rounded-lg px-4 py-2.5 text-fg text-sm placeholder:text-fg-subtle outline-none focus:border-accent/50 transition-colors"
             required
@@ -585,6 +617,8 @@ function ContactForm() {
           <label className="block text-fg-muted text-xs font-semibold uppercase tracking-wider mb-1.5">Email</label>
           <input
             type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
             placeholder="you@email.com"
             className="w-full bg-overlay border border-border rounded-lg px-4 py-2.5 text-fg text-sm placeholder:text-fg-subtle outline-none focus:border-accent/50 transition-colors"
             required
@@ -595,6 +629,8 @@ function ContactForm() {
         <label className="block text-fg-muted text-xs font-semibold uppercase tracking-wider mb-1.5">Subject</label>
         <input
           type="text"
+          value={subject}
+          onChange={(e) => setSubject(e.target.value)}
           placeholder="What's this about?"
           className="w-full bg-overlay border border-border rounded-lg px-4 py-2.5 text-fg text-sm placeholder:text-fg-subtle outline-none focus:border-accent/50 transition-colors"
           required
@@ -603,6 +639,8 @@ function ContactForm() {
       <div>
         <label className="block text-fg-muted text-xs font-semibold uppercase tracking-wider mb-1.5">Message</label>
         <textarea
+          value={message}
+          onChange={(e) => setMessage(e.target.value)}
           placeholder="Your message..."
           rows={4}
           className="w-full bg-overlay border border-border rounded-lg px-4 py-2.5 text-fg text-sm placeholder:text-fg-subtle outline-none focus:border-accent/50 transition-colors resize-none"
@@ -611,10 +649,17 @@ function ContactForm() {
       </div>
       <button
         type="submit"
-        className="w-full bg-accent hover:bg-accent-hover text-white font-semibold py-3 rounded-lg transition-colors cursor-pointer flex items-center justify-center gap-2"
+        disabled={loading}
+        className="w-full bg-accent hover:bg-accent-hover disabled:opacity-50 text-white font-semibold py-3 rounded-lg transition-colors cursor-pointer flex items-center justify-center gap-2"
       >
-        <Mail size={16} />
-        Send Message
+        {loading ? (
+          <Loader2 size={16} className="animate-spin" />
+        ) : (
+          <>
+            <Mail size={16} />
+            Send Message
+          </>
+        )}
       </button>
     </form>
   )

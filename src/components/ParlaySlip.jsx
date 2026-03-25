@@ -209,7 +209,7 @@ export default function ParlaySlip({ onAuthRequired }) {
         </div>
 
         {/* Action buttons */}
-        <div className="flex gap-2">
+        <div className="flex gap-2" data-onboard="action-buttons">
           <button
             onClick={handleShare}
             className={`flex-1 flex items-center justify-center gap-2 font-semibold py-3 rounded-lg transition-all cursor-pointer text-sm

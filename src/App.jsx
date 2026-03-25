@@ -10,10 +10,12 @@ import SharedParlayView from './components/SharedParlayView'
 import AuthPage from './components/AuthPage'
 import ProfilePage from './components/ProfilePage'
 import LandingPage from './components/LandingPage'
+import ErrorBoundary from './components/ErrorBoundary'
 import BookmakerSelector, { getSavedBookmaker, saveBookmaker } from './components/BookmakerSelector'
-import { fetchGames } from './data/nbaApi'
+import OnboardingTooltip from './components/OnboardingTooltip'
+import { fetchGames, clearOddsCache, getLastFetchTime, SPORTS } from './data/sportsApi'
 import { format, addDays, subDays, isToday as checkIsToday } from 'date-fns'
-import { ChevronLeft, ChevronRight, Loader2, AlertCircle, Calendar } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Loader2, AlertCircle, Calendar, RefreshCw } from 'lucide-react'
 
 function AppContent() {
   const [games, setGames] = useState([])
@@ -24,6 +26,10 @@ function AppContent() {
   const [mobileSlipOpen, setMobileSlipOpen] = useState(false)
   const [page, setPage] = useState('landing') // landing | home | auth | profile
   const [selectedBookmaker, setSelectedBookmaker] = useState(getSavedBookmaker)
+  const [lastFetchTime, setLastFetchTime] = useState(0)
+  const [refreshCounter, setRefreshCounter] = useState(0)
+  const [showOnboarding, setShowOnboarding] = useState(false)
+  const [selectedSport, setSelectedSport] = useState(() => localStorage.getItem('slipmate_sport') || 'nba')
   const { user } = useAuth()
 
   // Route authenticated users to home, unauthenticated to landing
@@ -48,6 +54,15 @@ function AppContent() {
     }
   }, [])
 
+  // Show onboarding for first-time users on home page
+  useEffect(() => {
+    if (page === 'home' && user && !localStorage.getItem('slipmate_onboarded')) {
+      setShowOnboarding(true)
+    } else {
+      setShowOnboarding(false)
+    }
+  }, [page, user])
+
   // Fetch games when date changes (only when on home page)
   useEffect(() => {
     if (page !== 'home') return
@@ -55,11 +70,12 @@ function AppContent() {
     setLoading(true)
     setError(null)
 
-    fetchGames(selectedDate)
+    fetchGames(selectedDate, selectedSport)
       .then(data => {
         if (!cancelled) {
           setGames(data)
           setLoading(false)
+          setLastFetchTime(getLastFetchTime(selectedSport) || Date.now())
         }
       })
       .catch(err => {
@@ -70,7 +86,22 @@ function AppContent() {
       })
 
     return () => { cancelled = true }
-  }, [selectedDate, page])
+  }, [selectedDate, page, refreshCounter, selectedSport])
+
+  // Tick counter to keep "X min ago" fresh
+  const [, setTick] = useState(0)
+  useEffect(() => {
+    if (page !== 'home' || !lastFetchTime) return
+    const interval = setInterval(() => setTick(t => t + 1), 30_000)
+    return () => clearInterval(interval)
+  }, [page, lastFetchTime])
+
+  const handleRefreshOdds = () => {
+    clearOddsCache()
+    setRefreshCounter(c => c + 1)
+  }
+
+  const ODDS_API_KEY = import.meta.env.VITE_ODDS_API_KEY
 
   const goToDay = (offset) => {
     setSelectedDate(prev => offset > 0 ? addDays(prev, offset) : subDays(prev, Math.abs(offset)))
@@ -85,6 +116,13 @@ function AppContent() {
     setSelectedBookmaker(key)
     saveBookmaker(key)
   }
+
+  const handleSportChange = (sport) => {
+    setSelectedSport(sport)
+    localStorage.setItem('slipmate_sport', sport)
+  }
+
+  const sportConfig = SPORTS[selectedSport]
 
   // Page routing
   if (page === 'landing') {
@@ -119,6 +157,26 @@ function AppContent() {
       )}
 
       <main className="flex-1 max-w-6xl mx-auto w-full px-4 py-5">
+        {/* Sport selector */}
+        <div className="flex items-center justify-center gap-1 mb-4">
+          {Object.entries(SPORTS).map(([key, sport]) => (
+            <button
+              key={key}
+              onClick={() => handleSportChange(key)}
+              className={`
+                px-4 py-1.5 rounded-full text-sm font-semibold transition-all duration-150 cursor-pointer
+                ${selectedSport === key
+                  ? 'bg-accent text-white shadow-sm'
+                  : 'bg-overlay text-fg-muted hover:bg-overlay-hover hover:text-fg'
+                }
+              `}
+            >
+              <span className="mr-1.5">{sport.emoji}</span>
+              {sport.label}
+            </button>
+          ))}
+        </div>
+
         {/* Date navigation */}
         <div className="flex items-center justify-between mb-5">
           <button
@@ -146,6 +204,13 @@ function AppContent() {
                 </button>
               )}
             </div>
+            {/* Odds freshness indicator */}
+            <OddsFreshnessIndicator
+              lastFetchTime={lastFetchTime}
+              hasApiKey={!!ODDS_API_KEY}
+              loading={loading}
+              onRefresh={handleRefreshOdds}
+            />
           </div>
 
           <button
@@ -173,7 +238,7 @@ function AppContent() {
             ) : games.length === 0 && !loading ? (
               <div className="text-center py-20">
                 <div className="w-16 h-16 bg-overlay rounded-2xl flex items-center justify-center mx-auto mb-4">
-                  <span className="text-3xl">🏀</span>
+                  <span className="text-3xl">{sportConfig.emoji}</span>
                 </div>
                 <p className="text-fg-muted font-semibold">No games scheduled</p>
                 <p className="text-fg-subtle text-sm mt-1">Try checking another date</p>
@@ -187,9 +252,9 @@ function AppContent() {
                     onSelect={handleBookmakerChange}
                   />
                 )}
-                <div className="space-y-2">
+                <div className="space-y-2" data-onboard="game-cards">
                   {games.map(game => (
-                    <GameCard key={game.id} game={game} selectedBookmaker={selectedBookmaker} />
+                    <GameCard key={game.id} game={game} selectedBookmaker={selectedBookmaker} sport={selectedSport} />
                   ))}
                 </div>
                 <p className="text-[10px] text-fg-subtle text-center pt-3 pb-1">
@@ -200,7 +265,7 @@ function AppContent() {
           </div>
 
           {/* Parlay slip - desktop sidebar */}
-          <div className="hidden xl:block sticky top-20">
+          <div className="hidden xl:block sticky top-20" data-onboard="parlay-slip">
             <ParlaySlip onAuthRequired={() => setPage('auth')} />
           </div>
         </div>
@@ -228,12 +293,61 @@ function AppContent() {
         </div>
       )}
 
+      {/* Onboarding walkthrough */}
+      {showOnboarding && <OnboardingTooltip />}
+
       {/* Footer */}
       <footer className="border-t border-border py-4 mt-6 mb-16 xl:mb-0">
         <p className="text-center text-fg-subtle text-[11px]">
-          Parlay — NBA Parlay Generator • Odds for entertainment purposes
+          Parlay — Sports Parlay Generator • Odds for entertainment purposes
         </p>
       </footer>
+    </div>
+  )
+}
+
+function OddsFreshnessIndicator({ lastFetchTime, hasApiKey, loading, onRefresh }) {
+  if (!hasApiKey) {
+    return (
+      <div className="flex items-center justify-center gap-1.5 mt-1">
+        <span className="w-2 h-2 rounded-full bg-gray-500 inline-block" />
+        <span className="text-fg-subtle text-[11px]">Sample data</span>
+      </div>
+    )
+  }
+
+  if (!lastFetchTime) return null
+
+  const ageMs = Date.now() - lastFetchTime
+  const ageMin = Math.floor(ageMs / 60_000)
+
+  // Green < 5 min, yellow 5-15 min, gray > 15 min
+  let dotColor = '#22c55e'
+  if (ageMin >= 15) {
+    dotColor = '#6b7280'
+  } else if (ageMin >= 5) {
+    dotColor = '#eab308'
+  }
+
+  const label = ageMin < 1 ? 'just now' : `${ageMin} min ago`
+
+  return (
+    <div className="flex items-center justify-center gap-1.5 mt-1">
+      <span
+        className="w-2 h-2 rounded-full inline-block"
+        style={{ backgroundColor: dotColor }}
+      />
+      <span className="text-fg-subtle text-[11px]">
+        Odds updated {label}
+      </span>
+      <button
+        onClick={onRefresh}
+        disabled={loading}
+        className="ml-1 p-0.5 rounded hover:bg-overlay transition-colors cursor-pointer disabled:opacity-40"
+        title="Refresh odds"
+      >
+        <RefreshCw size={11} className={`text-fg-subtle ${loading ? 'animate-spin' : ''}`} />
+      </button>
     </div>
   )
 }
@@ -265,12 +379,14 @@ function MobileSlipToggle({ open, onToggle }) {
 
 export default function App() {
   return (
-    <ThemeProvider>
-      <AuthProvider>
-        <ParlayProvider>
-          <AppContent />
-        </ParlayProvider>
-      </AuthProvider>
-    </ThemeProvider>
+    <ErrorBoundary>
+      <ThemeProvider>
+        <AuthProvider>
+          <ParlayProvider>
+            <AppContent />
+          </ParlayProvider>
+        </AuthProvider>
+      </ThemeProvider>
+    </ErrorBoundary>
   )
 }

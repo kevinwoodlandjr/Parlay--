@@ -1,10 +1,11 @@
 import { useState } from 'react'
 import { useAuth } from '../hooks/useAuth'
+import { supabase } from '../lib/supabase'
 import { Eye, EyeOff, ArrowLeft, Loader2 } from 'lucide-react'
 import Logo from './Logo'
 
 export default function AuthPage({ onBack }) {
-  const [mode, setMode] = useState('signin')
+  const [mode, setMode] = useState('signin') // signin | signup | forgot
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [name, setName] = useState('')
@@ -15,6 +16,37 @@ export default function AuthPage({ onBack }) {
   const [success, setSuccess] = useState(null)
 
   const { signUp, signIn } = useAuth()
+
+  const handleForgotPassword = async (e) => {
+    e.preventDefault()
+    setError(null)
+    setSuccess(null)
+    setLoading(true)
+
+    if (!email.trim()) {
+      setError('Please enter your email address')
+      setLoading(false)
+      return
+    }
+
+    try {
+      if (!supabase) {
+        setError('Password reset is not available right now')
+        setLoading(false)
+        return
+      }
+      const { error } = await supabase.auth.resetPasswordForEmail(email)
+      if (error) {
+        setError(error.message)
+      } else {
+        setSuccess('Check your email for a reset link')
+      }
+    } catch (err) {
+      setError(err.message || 'Something went wrong')
+    }
+
+    setLoading(false)
+  }
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -73,7 +105,7 @@ export default function AuthPage({ onBack }) {
               Slip<span className="text-accent">Mate</span>
             </h1>
             <p className="text-fg-subtle text-sm mt-1">
-              {mode === 'signin' ? 'Welcome back' : 'Create your account'}
+              {mode === 'signin' ? 'Welcome back' : mode === 'signup' ? 'Create your account' : 'Reset your password'}
             </p>
           </div>
 
@@ -88,114 +120,169 @@ export default function AuthPage({ onBack }) {
             </div>
           )}
 
-          <form onSubmit={handleSubmit} className="space-y-3">
-            {mode === 'signup' && (
-              <div>
-                <label className="block text-fg-muted text-xs font-semibold uppercase tracking-wider mb-1.5">
-                  Full Name
-                </label>
-                <input
-                  type="text"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder="Your name"
-                  className="w-full bg-overlay border border-border rounded-lg px-4 py-3 text-fg text-sm placeholder:text-fg-subtle outline-none focus:border-accent/50 transition-colors"
-                  required
-                />
-              </div>
-            )}
+          {mode === 'forgot' ? (
+            <>
+              <form onSubmit={handleForgotPassword} className="space-y-3">
+                <div>
+                  <label className="block text-fg-muted text-xs font-semibold uppercase tracking-wider mb-1.5">
+                    Email
+                  </label>
+                  <input
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="you@email.com"
+                    className="w-full bg-overlay border border-border rounded-lg px-4 py-3 text-fg text-sm placeholder:text-fg-subtle outline-none focus:border-accent/50 transition-colors"
+                    required
+                  />
+                </div>
 
-            <div>
-              <label className="block text-fg-muted text-xs font-semibold uppercase tracking-wider mb-1.5">
-                Email
-              </label>
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="you@email.com"
-                className="w-full bg-overlay border border-border rounded-lg px-4 py-3 text-fg text-sm placeholder:text-fg-subtle outline-none focus:border-accent/50 transition-colors"
-                required
-              />
-            </div>
-
-            {mode === 'signup' && (
-              <div>
-                <label className="block text-fg-muted text-xs font-semibold uppercase tracking-wider mb-1.5">
-                  Phone Number <span className="text-fg-subtle">(optional)</span>
-                </label>
-                <input
-                  type="tel"
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  placeholder="(555) 123-4567"
-                  className="w-full bg-overlay border border-border rounded-lg px-4 py-3 text-fg text-sm placeholder:text-fg-subtle outline-none focus:border-accent/50 transition-colors"
-                />
-              </div>
-            )}
-
-            <div>
-              <label className="block text-fg-muted text-xs font-semibold uppercase tracking-wider mb-1.5">
-                Password
-              </label>
-              <div className="relative">
-                <input
-                  type={showPassword ? 'text' : 'password'}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder={mode === 'signup' ? '6+ characters' : 'Your password'}
-                  className="w-full bg-overlay border border-border rounded-lg px-4 py-3 pr-11 text-fg text-sm placeholder:text-fg-subtle outline-none focus:border-accent/50 transition-colors"
-                  required
-                  minLength={6}
-                />
                 <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-fg-subtle hover:text-fg-muted cursor-pointer"
+                  type="submit"
+                  disabled={loading}
+                  className="w-full bg-accent hover:bg-accent-hover disabled:opacity-50 text-white font-semibold py-3 rounded-lg transition-colors cursor-pointer flex items-center justify-center gap-2 mt-4"
                 >
-                  {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                  {loading ? (
+                    <Loader2 size={18} className="animate-spin" />
+                  ) : (
+                    'Send Reset Link'
+                  )}
                 </button>
-              </div>
-            </div>
+              </form>
 
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full bg-accent hover:bg-accent-hover disabled:opacity-50 text-white font-semibold py-3 rounded-lg transition-colors cursor-pointer flex items-center justify-center gap-2 mt-4"
-            >
-              {loading ? (
-                <Loader2 size={18} className="animate-spin" />
-              ) : mode === 'signin' ? (
-                'Sign In'
-              ) : (
-                'Create Account'
-              )}
-            </button>
-          </form>
-
-          <p className="text-center text-fg-subtle text-sm mt-6">
-            {mode === 'signin' ? (
-              <>
-                Don't have an account?{' '}
+              <p className="text-center text-fg-subtle text-sm mt-6">
                 <button
-                  onClick={() => { setMode('signup'); setError(null); setSuccess(null) }}
+                  onClick={() => { setMode('signin'); setError(null); setSuccess(null) }}
                   className="text-accent font-semibold hover:underline cursor-pointer"
                 >
-                  Sign Up
+                  Back to sign in
                 </button>
-              </>
-            ) : (
-              <>
-                Already have an account?{' '}
+              </p>
+            </>
+          ) : (
+            <>
+              <form onSubmit={handleSubmit} className="space-y-3">
+                {mode === 'signup' && (
+                  <div>
+                    <label className="block text-fg-muted text-xs font-semibold uppercase tracking-wider mb-1.5">
+                      Full Name
+                    </label>
+                    <input
+                      type="text"
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      placeholder="Your name"
+                      className="w-full bg-overlay border border-border rounded-lg px-4 py-3 text-fg text-sm placeholder:text-fg-subtle outline-none focus:border-accent/50 transition-colors"
+                      required
+                    />
+                  </div>
+                )}
+
+                <div>
+                  <label className="block text-fg-muted text-xs font-semibold uppercase tracking-wider mb-1.5">
+                    Email
+                  </label>
+                  <input
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="you@email.com"
+                    className="w-full bg-overlay border border-border rounded-lg px-4 py-3 text-fg text-sm placeholder:text-fg-subtle outline-none focus:border-accent/50 transition-colors"
+                    required
+                  />
+                </div>
+
+                {mode === 'signup' && (
+                  <div>
+                    <label className="block text-fg-muted text-xs font-semibold uppercase tracking-wider mb-1.5">
+                      Phone Number <span className="text-fg-subtle">(optional)</span>
+                    </label>
+                    <input
+                      type="tel"
+                      value={phone}
+                      onChange={(e) => setPhone(e.target.value)}
+                      placeholder="(555) 123-4567"
+                      className="w-full bg-overlay border border-border rounded-lg px-4 py-3 text-fg text-sm placeholder:text-fg-subtle outline-none focus:border-accent/50 transition-colors"
+                    />
+                  </div>
+                )}
+
+                <div>
+                  <label className="block text-fg-muted text-xs font-semibold uppercase tracking-wider mb-1.5">
+                    Password
+                  </label>
+                  <div className="relative">
+                    <input
+                      type={showPassword ? 'text' : 'password'}
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      placeholder={mode === 'signup' ? '6+ characters' : 'Your password'}
+                      className="w-full bg-overlay border border-border rounded-lg px-4 py-3 pr-11 text-fg text-sm placeholder:text-fg-subtle outline-none focus:border-accent/50 transition-colors"
+                      required
+                      minLength={6}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-fg-subtle hover:text-fg-muted cursor-pointer"
+                    >
+                      {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                    </button>
+                  </div>
+                </div>
+
+                {mode === 'signin' && (
+                  <div className="text-right">
+                    <button
+                      type="button"
+                      onClick={() => { setMode('forgot'); setError(null); setSuccess(null) }}
+                      className="text-accent text-sm font-semibold hover:underline cursor-pointer"
+                    >
+                      Forgot password?
+                    </button>
+                  </div>
+                )}
+
                 <button
-                  onClick={() => { setMode('signin'); setError(null) }}
-                  className="text-accent font-semibold hover:underline cursor-pointer"
+                  type="submit"
+                  disabled={loading}
+                  className="w-full bg-accent hover:bg-accent-hover disabled:opacity-50 text-white font-semibold py-3 rounded-lg transition-colors cursor-pointer flex items-center justify-center gap-2 mt-4"
                 >
-                  Sign In
+                  {loading ? (
+                    <Loader2 size={18} className="animate-spin" />
+                  ) : mode === 'signin' ? (
+                    'Sign In'
+                  ) : (
+                    'Create Account'
+                  )}
                 </button>
-              </>
-            )}
-          </p>
+              </form>
+
+              <p className="text-center text-fg-subtle text-sm mt-6">
+                {mode === 'signin' ? (
+                  <>
+                    Don't have an account?{' '}
+                    <button
+                      onClick={() => { setMode('signup'); setError(null); setSuccess(null) }}
+                      className="text-accent font-semibold hover:underline cursor-pointer"
+                    >
+                      Sign Up
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    Already have an account?{' '}
+                    <button
+                      onClick={() => { setMode('signin'); setError(null) }}
+                      className="text-accent font-semibold hover:underline cursor-pointer"
+                    >
+                      Sign In
+                    </button>
+                  </>
+                )}
+              </p>
+            </>
+          )}
         </div>
       </div>
     </div>

@@ -1,6 +1,6 @@
 /**
- * NBA data fetching layer.
- * Uses The Odds API for real NBA game data + odds.
+ * Sports data fetching layer.
+ * Uses The Odds API for real game data + odds (NBA & NFL).
  * Falls back to generated sample data if no API key or API is down.
  */
 
@@ -13,18 +13,44 @@ const ODDS_API_BASE = 'https://api.the-odds-api.com/v4'
 // Preferred bookmakers in priority order
 const PREFERRED_BOOKMAKERS = ['fanduel', 'draftkings', 'betmgm', 'caesars', 'espnbet']
 
-// Cache to avoid burning API requests on every render/navigation
-let oddsCache = { data: null, timestamp: 0 }
+// Supported sports
+export const SPORTS = {
+  nba: { key: 'basketball_nba', label: 'NBA', emoji: '🏀', oddsApiKey: 'basketball_nba' },
+  nfl: { key: 'americanfootball_nfl', label: 'NFL', emoji: '🏈', oddsApiKey: 'americanfootball_nfl' },
+}
+
+// Per-sport cache to avoid burning API requests on every render/navigation
+const oddsCache = {}
 const CACHE_DURATION = 5 * 60 * 1000 // 5 minutes
 
-// Fetch games + odds from The Odds API (with caching)
-async function fetchOddsApi() {
-  // Return cached data if fresh
-  if (oddsCache.data && Date.now() - oddsCache.timestamp < CACHE_DURATION) {
-    return oddsCache.data
+/** Clear the odds cache for a sport (or all sports) so the next fetchGames call hits the API. */
+export function clearOddsCache(sport = null) {
+  if (sport) {
+    delete oddsCache[sport]
+  } else {
+    for (const key of Object.keys(oddsCache)) {
+      delete oddsCache[key]
+    }
+  }
+}
+
+/** Return the timestamp of the last successful API fetch for a sport (0 if no cache). */
+export function getLastFetchTime(sport = 'nba') {
+  return oddsCache[sport]?.timestamp || 0
+}
+
+// Fetch games + odds from The Odds API (with per-sport caching)
+async function fetchOddsApi(sport = 'nba') {
+  const sportConfig = SPORTS[sport]
+  if (!sportConfig) throw new Error(`Unknown sport: ${sport}`)
+
+  const cacheKey = sport
+  const cached = oddsCache[cacheKey]
+  if (cached && Date.now() - cached.timestamp < CACHE_DURATION) {
+    return cached.data
   }
 
-  const url = new URL(`${ODDS_API_BASE}/sports/basketball_nba/odds`)
+  const url = new URL(`${ODDS_API_BASE}/sports/${sportConfig.oddsApiKey}/odds`)
   url.searchParams.set('apiKey', ODDS_API_KEY)
   url.searchParams.set('regions', 'us')
   url.searchParams.set('markets', 'h2h,spreads,totals')
@@ -39,11 +65,11 @@ async function fetchOddsApi() {
   const remaining = response.headers.get('x-requests-remaining')
   const used = response.headers.get('x-requests-used')
   if (remaining) {
-    console.log(`Odds API: ${used} used, ${remaining} remaining`)
+    console.log(`Odds API (${sport}): ${used} used, ${remaining} remaining`)
   }
 
   const data = await response.json()
-  oddsCache = { data, timestamp: Date.now() }
+  oddsCache[cacheKey] = { data, timestamp: Date.now() }
   return data
 }
 
@@ -57,7 +83,7 @@ function pickBookmaker(bookmakers) {
 }
 
 // Extract odds from a bookmaker's markets
-function extractOdds(bookmaker, homeTeam, awayTeam) {
+function extractOdds(bookmaker, homeTeam, awayTeam, sport) {
   const markets = {}
   for (const market of bookmaker.markets) {
     markets[market.key] = market.outcomes
@@ -78,6 +104,9 @@ function extractOdds(bookmaker, homeTeam, awayTeam) {
   const over = totals.find(o => o.name === 'Over')
   const under = totals.find(o => o.name === 'Under')
 
+  // Default total depends on sport
+  const defaultTotal = sport === 'nfl' ? 45 : 220
+
   return {
     moneyline: {
       home: homeML?.price || -110,
@@ -88,7 +117,7 @@ function extractOdds(bookmaker, homeTeam, awayTeam) {
       away: { line: awaySpread?.point || 0, odds: awaySpread?.price || -110 },
     },
     overUnder: {
-      total: over?.point || 220,
+      total: over?.point || defaultTotal,
       over: { odds: over?.price || -110 },
       under: { odds: under?.price || -110 },
     },
@@ -98,7 +127,7 @@ function extractOdds(bookmaker, homeTeam, awayTeam) {
 }
 
 // Map The Odds API team names to our abbreviation format
-const TEAM_ABBR_MAP = {
+const NBA_TEAM_ABBR_MAP = {
   'Atlanta Hawks': 'ATL', 'Boston Celtics': 'BOS', 'Brooklyn Nets': 'BKN',
   'Charlotte Hornets': 'CHA', 'Chicago Bulls': 'CHI', 'Cleveland Cavaliers': 'CLE',
   'Dallas Mavericks': 'DAL', 'Denver Nuggets': 'DEN', 'Detroit Pistons': 'DET',
@@ -111,8 +140,27 @@ const TEAM_ABBR_MAP = {
   'Toronto Raptors': 'TOR', 'Utah Jazz': 'UTA', 'Washington Wizards': 'WAS',
 }
 
-function teamNameToInfo(name) {
-  const abbr = TEAM_ABBR_MAP[name] || name.substring(0, 3).toUpperCase()
+const NFL_TEAM_ABBR_MAP = {
+  'Arizona Cardinals': 'ARI', 'Atlanta Falcons': 'ATL', 'Baltimore Ravens': 'BAL',
+  'Buffalo Bills': 'BUF', 'Carolina Panthers': 'CAR', 'Chicago Bears': 'CHI',
+  'Cincinnati Bengals': 'CIN', 'Cleveland Browns': 'CLE', 'Dallas Cowboys': 'DAL',
+  'Denver Broncos': 'DEN', 'Detroit Lions': 'DET', 'Green Bay Packers': 'GB',
+  'Houston Texans': 'HOU', 'Indianapolis Colts': 'IND', 'Jacksonville Jaguars': 'JAX',
+  'Kansas City Chiefs': 'KC', 'Las Vegas Raiders': 'LV', 'Los Angeles Chargers': 'LAC',
+  'Los Angeles Rams': 'LAR', 'Miami Dolphins': 'MIA', 'Minnesota Vikings': 'MIN',
+  'New England Patriots': 'NE', 'New Orleans Saints': 'NO', 'New York Giants': 'NYG',
+  'New York Jets': 'NYJ', 'Philadelphia Eagles': 'PHI', 'Pittsburgh Steelers': 'PIT',
+  'San Francisco 49ers': 'SF', 'Seattle Seahawks': 'SEA', 'Tampa Bay Buccaneers': 'TB',
+  'Tennessee Titans': 'TEN', 'Washington Commanders': 'WSH',
+}
+
+function getTeamAbbrMap(sport) {
+  return sport === 'nfl' ? NFL_TEAM_ABBR_MAP : NBA_TEAM_ABBR_MAP
+}
+
+function teamNameToInfo(name, sport) {
+  const map = getTeamAbbrMap(sport)
+  const abbr = map[name] || name.substring(0, 3).toUpperCase()
   const city = name.replace(/ [^ ]+$/, '') // everything before last word
   return {
     id: abbr,
@@ -125,10 +173,10 @@ function teamNameToInfo(name) {
 }
 
 // Transform Odds API event to our game format
-function transformEvent(event) {
+function transformEvent(event, sport) {
   const defaultBookmaker = event.bookmakers?.length > 0 ? pickBookmaker(event.bookmakers) : null
-  const homeTeam = teamNameToInfo(event.home_team)
-  const awayTeam = teamNameToInfo(event.away_team)
+  const homeTeam = teamNameToInfo(event.home_team, sport)
+  const awayTeam = teamNameToInfo(event.away_team, sport)
 
   const gameTime = new Date(event.commence_time)
   const timeStr = gameTime.toLocaleTimeString('en-US', {
@@ -138,13 +186,13 @@ function transformEvent(event) {
   })
 
   const defaultOdds = defaultBookmaker
-    ? extractOdds(defaultBookmaker, event.home_team, event.away_team)
+    ? extractOdds(defaultBookmaker, event.home_team, event.away_team, sport)
     : { ...generateEstimatedOdds(0.5, 0.5), source: 'estimated', bookmaker: null }
 
   // Build odds for ALL available bookmakers
   const oddsByBookmaker = {}
   for (const bm of (event.bookmakers || [])) {
-    oddsByBookmaker[bm.key] = extractOdds(bm, event.home_team, event.away_team)
+    oddsByBookmaker[bm.key] = extractOdds(bm, event.home_team, event.away_team, sport)
   }
 
   // Collect all bookmaker keys that have odds for this game
@@ -164,21 +212,22 @@ function transformEvent(event) {
     odds: defaultOdds,
     oddsByBookmaker,
     availableBookmakers,
+    sport,
   }
 }
 
-// Fetch games for a specific date
-export async function fetchGames(date) {
+// Fetch games for a specific date and sport
+export async function fetchGames(date, sport = 'nba') {
   const dateStr = format(date, 'yyyy-MM-dd')
 
   if (ODDS_API_KEY) {
     try {
-      const events = await fetchOddsApi()
+      const events = await fetchOddsApi(sport)
 
       if (events && events.length > 0) {
         // Filter to games on the requested date
         const dayGames = events
-          .map(transformEvent)
+          .map(e => transformEvent(e, sport))
           .filter(g => g.date === dateStr)
           .sort((a, b) => a.commenceTime - b.commenceTime)
 
@@ -192,10 +241,10 @@ export async function fetchGames(date) {
   }
 
   // Fallback to sample data
-  return generateSampleGames(date)
+  return sport === 'nfl' ? generateSampleNFLGames(date) : generateSampleGames(date)
 }
 
-// Generate sample games for demo/fallback
+// Generate sample NBA games for demo/fallback
 function generateSampleGames(date) {
   const matchups = [
     {
@@ -252,6 +301,75 @@ function generateSampleGames(date) {
       period: 0,
       odds: { ...odds, source: 'estimated', bookmaker: null },
       availableBookmakers: [],
+      sport: 'nba',
+    })
+  }
+
+  return games
+}
+
+// Generate sample NFL games for demo/fallback
+function generateSampleNFLGames(date) {
+  const matchups = [
+    {
+      home: { id: 1, name: 'Kansas City Chiefs', city: 'Kansas City', abbreviation: 'KC', conference: 'AFC', division: 'West' },
+      away: { id: 2, name: 'Buffalo Bills', city: 'Buffalo', abbreviation: 'BUF', conference: 'AFC', division: 'East' },
+      time: '4:25 PM ET',
+    },
+    {
+      home: { id: 3, name: 'San Francisco 49ers', city: 'San Francisco', abbreviation: 'SF', conference: 'NFC', division: 'West' },
+      away: { id: 4, name: 'Philadelphia Eagles', city: 'Philadelphia', abbreviation: 'PHI', conference: 'NFC', division: 'East' },
+      time: '1:00 PM ET',
+    },
+    {
+      home: { id: 5, name: 'Dallas Cowboys', city: 'Dallas', abbreviation: 'DAL', conference: 'NFC', division: 'East' },
+      away: { id: 6, name: 'Detroit Lions', city: 'Detroit', abbreviation: 'DET', conference: 'NFC', division: 'North' },
+      time: '1:00 PM ET',
+    },
+    {
+      home: { id: 7, name: 'Baltimore Ravens', city: 'Baltimore', abbreviation: 'BAL', conference: 'AFC', division: 'North' },
+      away: { id: 8, name: 'Cincinnati Bengals', city: 'Cincinnati', abbreviation: 'CIN', conference: 'AFC', division: 'North' },
+      time: '8:20 PM ET',
+    },
+    {
+      home: { id: 9, name: 'Green Bay Packers', city: 'Green Bay', abbreviation: 'GB', conference: 'NFC', division: 'North' },
+      away: { id: 10, name: 'Minnesota Vikings', city: 'Minnesota', abbreviation: 'MIN', conference: 'NFC', division: 'North' },
+      time: '4:25 PM ET',
+    },
+    {
+      home: { id: 11, name: 'Miami Dolphins', city: 'Miami', abbreviation: 'MIA', conference: 'AFC', division: 'East' },
+      away: { id: 12, name: 'New York Jets', city: 'New York', abbreviation: 'NYJ', conference: 'AFC', division: 'East' },
+      time: '1:00 PM ET',
+    },
+  ]
+
+  const dayNum = date.getDate()
+  const count = 3 + (dayNum % 4)
+  const startIdx = dayNum % matchups.length
+
+  const games = []
+  for (let i = 0; i < count; i++) {
+    const matchup = matchups[(startIdx + i) % matchups.length]
+    const seed = (matchup.home.name.length + matchup.away.name.length) / 30
+    const odds = generateEstimatedOdds(0.5 + (seed - 0.5) * 0.3, 0.5 - (seed - 0.5) * 0.3)
+
+    // NFL-appropriate over/under (around 43-50)
+    const nflTotal = 43 + (dayNum % 8)
+    odds.overUnder.total = nflTotal
+
+    games.push({
+      id: `sample-nfl-${i}-${format(date, 'yyyyMMdd')}`,
+      date: format(date, 'yyyy-MM-dd'),
+      status: 'scheduled',
+      time: matchup.time,
+      homeTeam: matchup.home,
+      awayTeam: matchup.away,
+      homeScore: 0,
+      awayScore: 0,
+      period: 0,
+      odds: { ...odds, source: 'estimated', bookmaker: null },
+      availableBookmakers: [],
+      sport: 'nfl',
     })
   }
 

@@ -3,11 +3,12 @@ import { formatOdds } from '../utils/odds'
 import { useParlay } from '../hooks/useParlayStore'
 import TeamLogo from './TeamLogo'
 
-export default function GameCard({ game, selectedBookmaker }) {
+export default function GameCard({ game, selectedBookmaker, sport }) {
   const { toggleLeg, legs } = useParlay()
 
-  const homeInfo = getTeamInfo(game.homeTeam.name)
-  const awayInfo = getTeamInfo(game.awayTeam.name)
+  const gameSport = sport || game.sport || 'nba'
+  const homeInfo = getTeamInfo(game.homeTeam.name, gameSport)
+  const awayInfo = getTeamInfo(game.awayTeam.name, gameSport)
 
   // Use selected bookmaker's odds if available, otherwise fall back to default
   const odds = (selectedBookmaker && game.oddsByBookmaker?.[selectedBookmaker])
