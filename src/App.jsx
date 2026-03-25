@@ -10,6 +10,7 @@ import SharedParlayView from './components/SharedParlayView'
 import AuthPage from './components/AuthPage'
 import ProfilePage from './components/ProfilePage'
 import LandingPage from './components/LandingPage'
+import BookmakerSelector, { getSavedBookmaker, saveBookmaker } from './components/BookmakerSelector'
 import { fetchGames } from './data/nbaApi'
 import { format, addDays, subDays, isToday as checkIsToday } from 'date-fns'
 import { ChevronLeft, ChevronRight, Loader2, AlertCircle, Calendar } from 'lucide-react'
@@ -22,6 +23,7 @@ function AppContent() {
   const [sharedParlay, setSharedParlay] = useState(null)
   const [mobileSlipOpen, setMobileSlipOpen] = useState(false)
   const [page, setPage] = useState('landing') // landing | home | auth | profile
+  const [selectedBookmaker, setSelectedBookmaker] = useState(getSavedBookmaker)
   const { user } = useAuth()
 
   // Route authenticated users to home, unauthenticated to landing
@@ -75,6 +77,14 @@ function AppContent() {
   }
 
   const isToday = checkIsToday(selectedDate)
+
+  // Collect all available bookmakers across loaded games
+  const allBookmakers = [...new Set(games.flatMap(g => g.availableBookmakers || []))]
+
+  const handleBookmakerChange = (key) => {
+    setSelectedBookmaker(key)
+    saveBookmaker(key)
+  }
 
   // Page routing
   if (page === 'landing') {
@@ -160,7 +170,7 @@ function AppContent() {
                 <AlertCircle size={18} />
                 <p className="text-sm">{error}</p>
               </div>
-            ) : games.length === 0 ? (
+            ) : games.length === 0 && !loading ? (
               <div className="text-center py-20">
                 <div className="w-16 h-16 bg-overlay rounded-2xl flex items-center justify-center mx-auto mb-4">
                   <span className="text-3xl">🏀</span>
@@ -169,10 +179,19 @@ function AppContent() {
                 <p className="text-fg-subtle text-sm mt-1">Try checking another date</p>
               </div>
             ) : (
-              <div className="space-y-2">
-                {games.map(game => (
-                  <GameCard key={game.id} game={game} />
-                ))}
+              <div className="space-y-3">
+                {allBookmakers.length > 0 && (
+                  <BookmakerSelector
+                    availableBookmakers={allBookmakers}
+                    selected={selectedBookmaker}
+                    onSelect={handleBookmakerChange}
+                  />
+                )}
+                <div className="space-y-2">
+                  {games.map(game => (
+                    <GameCard key={game.id} game={game} selectedBookmaker={selectedBookmaker} />
+                  ))}
+                </div>
                 <p className="text-[10px] text-fg-subtle text-center pt-3 pb-1">
                   Odds for planning purposes • Tap any cell to add to your parlay
                 </p>

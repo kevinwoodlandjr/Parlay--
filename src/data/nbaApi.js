@@ -126,7 +126,7 @@ function teamNameToInfo(name) {
 
 // Transform Odds API event to our game format
 function transformEvent(event) {
-  const bookmaker = event.bookmakers?.length > 0 ? pickBookmaker(event.bookmakers) : null
+  const defaultBookmaker = event.bookmakers?.length > 0 ? pickBookmaker(event.bookmakers) : null
   const homeTeam = teamNameToInfo(event.home_team)
   const awayTeam = teamNameToInfo(event.away_team)
 
@@ -137,9 +137,15 @@ function transformEvent(event) {
     timeZoneName: 'short',
   })
 
-  const odds = bookmaker
-    ? extractOdds(bookmaker, event.home_team, event.away_team)
+  const defaultOdds = defaultBookmaker
+    ? extractOdds(defaultBookmaker, event.home_team, event.away_team)
     : { ...generateEstimatedOdds(0.5, 0.5), source: 'estimated', bookmaker: null }
+
+  // Build odds for ALL available bookmakers
+  const oddsByBookmaker = {}
+  for (const bm of (event.bookmakers || [])) {
+    oddsByBookmaker[bm.key] = extractOdds(bm, event.home_team, event.away_team)
+  }
 
   // Collect all bookmaker keys that have odds for this game
   const availableBookmakers = (event.bookmakers || []).map(b => b.key)
@@ -155,7 +161,8 @@ function transformEvent(event) {
     homeScore: 0,
     awayScore: 0,
     period: 0,
-    odds,
+    odds: defaultOdds,
+    oddsByBookmaker,
     availableBookmakers,
   }
 }

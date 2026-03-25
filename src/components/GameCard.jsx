@@ -3,13 +3,16 @@ import { formatOdds } from '../utils/odds'
 import { useParlay } from '../hooks/useParlayStore'
 import TeamLogo from './TeamLogo'
 
-export default function GameCard({ game }) {
+export default function GameCard({ game, selectedBookmaker }) {
   const { toggleLeg, legs } = useParlay()
 
   const homeInfo = getTeamInfo(game.homeTeam.name)
   const awayInfo = getTeamInfo(game.awayTeam.name)
 
-  const odds = game.odds
+  // Use selected bookmaker's odds if available, otherwise fall back to default
+  const odds = (selectedBookmaker && game.oddsByBookmaker?.[selectedBookmaker])
+    ? game.oddsByBookmaker[selectedBookmaker]
+    : game.odds
 
   const isSelected = (gameId, type, pick) => {
     return legs.some(l => l.gameId === gameId && l.type === type && l.pick === pick)
@@ -22,6 +25,7 @@ export default function GameCard({ game }) {
   const fmtLine = (n) => (n > 0 ? `+${n}` : `${n}`)
 
   const isLive = odds?.source === 'api'
+  const bookLabel = odds?.bookmaker || (isLive ? 'LIVE ODDS' : 'EST. ODDS')
 
   return (
     <div className="bg-surface rounded-xl border border-border overflow-hidden max-w-2xl">
@@ -31,7 +35,7 @@ export default function GameCard({ game }) {
           {game.time || 'TBD'}
         </span>
         <span className={`text-[10px] font-medium ${isLive ? 'text-green' : 'text-fg-subtle'}`}>
-          {isLive ? odds.bookmaker || 'LIVE ODDS' : 'EST. ODDS'}
+          {bookLabel}
         </span>
       </div>
 
