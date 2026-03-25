@@ -240,8 +240,16 @@ export async function fetchGames(date, sport = 'nba') {
     }
   }
 
-  // Fallback to sample data
-  return sport === 'nfl' ? generateSampleNFLGames(date) : generateSampleGames(date)
+  // Fallback to sample data — only for NBA (which runs Oct-Jun)
+  // NFL runs Sep-Feb, so don't show fake games outside the season
+  if (sport === 'nfl') {
+    const month = date.getMonth() // 0-indexed
+    const isNFLSeason = month >= 8 || month <= 1 // Sep(8) through Feb(1)
+    if (!isNFLSeason) return []
+    return generateSampleNFLGames(date)
+  }
+
+  return generateSampleGames(date)
 }
 
 // Generate sample NBA games for demo/fallback

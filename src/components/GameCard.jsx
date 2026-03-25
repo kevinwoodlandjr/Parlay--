@@ -26,7 +26,11 @@ export default function GameCard({ game, selectedBookmaker, sport }) {
   const fmtLine = (n) => (n > 0 ? `+${n}` : `${n}`)
 
   const isLive = odds?.source === 'api'
-  const bookLabel = isLive ? 'LIVE ODDS' : 'EST. ODDS'
+  const BOOKMAKER_NAMES = { fanduel: 'FanDuel', draftkings: 'DraftKings', betmgm: 'BetMGM', caesars: 'Caesars', espnbet: 'ESPN BET' }
+  const selectedBookName = selectedBookmaker && BOOKMAKER_NAMES[selectedBookmaker]
+  const bookLabel = isLive
+    ? (selectedBookName ? `Live Odds from ${selectedBookName}` : 'LIVE ODDS')
+    : 'EST. ODDS'
 
   return (
     <div className="bg-surface rounded-xl border border-border overflow-hidden max-w-2xl">
