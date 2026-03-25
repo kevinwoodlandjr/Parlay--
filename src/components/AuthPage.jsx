@@ -70,7 +70,7 @@ export default function AuthPage({ onBack }) {
               <Logo size={48} />
             </div>
             <h1 className="text-fg text-2xl font-extrabold tracking-tight">
-              LAYUP<span className="text-accent">!</span>
+              Slip<span className="text-accent">Mate</span>
             </h1>
             <p className="text-fg-subtle text-sm mt-1">
               {mode === 'signin' ? 'Welcome back' : 'Create your account'}

@@ -28,7 +28,7 @@ export default function LandingPage({ onAuth }) {
           <div className="flex items-center gap-2.5">
             <Logo size={32} />
             <h1 className="text-lg font-extrabold text-fg tracking-tight">
-              LAYUP<span className="text-accent">!</span>
+              Slip<span className="text-accent">Mate</span>
             </h1>
           </div>
           <div className="flex items-center gap-3">
@@ -61,7 +61,7 @@ export default function LandingPage({ onAuth }) {
         </div>
         <h2 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold text-fg tracking-tight leading-tight">
           Build Smarter<br />
-          <span className="text-accent">NBA Parlays</span>
+          <span className="text-accent">Multi-Sport Parlays</span>
         </h2>
         <p className="text-fg-muted text-lg sm:text-xl max-w-2xl mx-auto mt-5 leading-relaxed">
           Real-time odds from top sportsbooks. AI-powered analysis. Build, save, and track your parlays all in one place.
@@ -184,7 +184,7 @@ export default function LandingPage({ onAuth }) {
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
             <div className="flex items-center gap-2">
               <Logo size={24} />
-              <span className="text-fg font-bold text-sm">LAYUP<span className="text-accent">!</span></span>
+              <span className="text-fg font-bold text-sm">Slip<span className="text-accent">Mate</span></span>
             </div>
             <div className="flex items-center gap-6">
               <a href="#features" className="text-fg-subtle text-xs hover:text-fg transition-colors">Features</a>
@@ -192,7 +192,7 @@ export default function LandingPage({ onAuth }) {
               <a href="#contact" className="text-fg-subtle text-xs hover:text-fg transition-colors">Contact</a>
             </div>
             <p className="text-fg-subtle text-xs">
-              LayUp! — For entertainment purposes only
+              SlipMate — For entertainment purposes only
             </p>
           </div>
         </div>
@@ -241,8 +241,8 @@ function DemoPreview() {
         {/* Fake header */}
         <div className="px-5 py-3 border-b border-border flex items-center justify-between bg-overlay">
           <div className="flex items-center gap-2">
-            <div className="w-6 h-6 bg-gradient-to-br from-accent to-orange-500 rounded-md" />
-            <span className="text-fg font-bold text-sm">LAYUP!</span>
+            <div className="w-6 h-6 bg-gradient-to-br from-accent to-accent-light rounded-md" />
+            <span className="text-fg font-bold text-sm">Slip<span className="text-accent">Mate</span></span>
           </div>
           <div className="flex items-center gap-2">
             {legs.length > 0 && (

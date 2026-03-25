@@ -70,7 +70,7 @@ export function formatParlayText(legs, wager, parlayOdds, potentialPayout) {
   lines.push('─'.repeat(30))
   lines.push(`Wager: $${wager.toFixed(2)} | Payout: $${potentialPayout.toFixed(2)}`)
   lines.push('')
-  lines.push('Built with LAYUP!')
+  lines.push('Built with SlipMate')
 
   return lines.join('\n')
 }

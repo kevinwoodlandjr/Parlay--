@@ -4,12 +4,13 @@
   --font-sans: 'Inter', system-ui, sans-serif;
   --color-primary: #12121f;
   --color-secondary: #16213e;
-  --color-accent: #e94560;
-  --color-accent-hover: #d63651;
+  --color-accent: #C8962E;
+  --color-accent-hover: #B5841F;
+  --color-accent-light: #E8C468;
   --color-surface: #171729;
   --color-surface-light: #1e1e36;
   --color-surface-lighter: #262646;
-  --color-gold: #f4c430;
+  --color-gold: #C8962E;
   --color-green: #34d399;
   --color-win: #34d399;
   --color-lose: #e94560;

@@ -27,7 +27,7 @@ export default function Header({ onProfileClick, onAuthClick, onHomeClick }) {
           <Logo size={32} />
           <div className="leading-none">
             <h1 className="text-lg font-extrabold text-fg tracking-tight">
-              LAYUP<span className="text-accent">!</span>
+              Slip<span className="text-accent">Mate</span>
             </h1>
           </div>
         </button>
@@ -58,7 +58,7 @@ export default function Header({ onProfileClick, onAuthClick, onHomeClick }) {
           {user ? (
             <button
               onClick={onProfileClick}
-              className="w-8 h-8 bg-gradient-to-br from-accent/80 to-orange-500/80 rounded-full flex items-center justify-center cursor-pointer hover:ring-2 hover:ring-accent/30 transition-all"
+              className="w-8 h-8 bg-gradient-to-br from-accent to-accent-light rounded-full flex items-center justify-center cursor-pointer hover:ring-2 hover:ring-accent/30 transition-all"
               title="Profile"
             >
               <span className="text-white text-xs font-bold">
