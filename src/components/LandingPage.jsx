@@ -1,19 +1,46 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { useTheme } from '../hooks/useTheme'
-import { Zap, TrendingUp, Share2, Shield, Sparkles, Sun, Moon, ChevronRight, Mail, ArrowRight, BarChart3, Users, ExternalLink } from 'lucide-react'
+import { Zap, TrendingUp, Share2, Shield, Sparkles, Sun, Moon, ChevronRight, Mail, ArrowRight, BarChart3, Users, ExternalLink, X, RotateCcw } from 'lucide-react'
 import Logo from './Logo'
+import TeamLogo from './TeamLogo'
+import { getTeamLogo } from '../data/teams'
 
-// Demo data for the animated preview
+// Demo data with ESPN abbreviations for real logos
 const DEMO_GAMES = [
-  { away: 'BOS', home: 'NYK', spread: '+3.5', ml: '+150', total: 'O 218.5' },
-  { away: 'LAL', home: 'GSW', spread: '-2', ml: '-130', total: 'O 231' },
-  { away: 'MIA', home: 'MIL', spread: '+5.5', ml: '+210', total: 'U 224' },
+  {
+    id: 'g1', away: 'BOS', home: 'NYK', awayFull: 'Celtics', homeFull: 'Knicks',
+    awayEspn: 'bos', homeEspn: 'ny', time: '7:00 PM ET',
+    odds: {
+      spread: { away: { line: '+3.5', odds: -110 }, home: { line: '-3.5', odds: -110 } },
+      total: { over: { line: 'O 218.5', odds: -110 }, under: { line: 'U 218.5', odds: -108 } },
+      ml: { away: { line: '+150', odds: 150 }, home: { line: '-185', odds: -185 } },
+    }
+  },
+  {
+    id: 'g2', away: 'LAL', home: 'GSW', awayFull: 'Lakers', homeFull: 'Warriors',
+    awayEspn: 'lal', homeEspn: 'gs', time: '10:00 PM ET',
+    odds: {
+      spread: { away: { line: '-2', odds: -110 }, home: { line: '+2', odds: -110 } },
+      total: { over: { line: 'O 231', odds: -108 }, under: { line: 'U 231', odds: -112 } },
+      ml: { away: { line: '-130', odds: -130 }, home: { line: '+110', odds: 110 } },
+    }
+  },
+  {
+    id: 'g3', away: 'MIA', home: 'MIL', awayFull: 'Heat', homeFull: 'Bucks',
+    awayEspn: 'mia', homeEspn: 'mil', time: '8:00 PM ET',
+    odds: {
+      spread: { away: { line: '+5.5', odds: -110 }, home: { line: '-5.5', odds: -110 } },
+      total: { over: { line: 'O 224', odds: -110 }, under: { line: 'U 224', odds: -110 } },
+      ml: { away: { line: '+210', odds: 210 }, home: { line: '-250', odds: -250 } },
+    }
+  },
 ]
 
-const DEMO_LEGS = [
-  { desc: 'BOS +3.5 (-110)', matchup: 'BOS @ NYK', odds: '-110' },
-  { desc: 'Over 231 (-108)', matchup: 'LAL @ GSW', odds: '-108' },
-  { desc: 'MIL ML (-250)', matchup: 'MIA @ MIL', odds: '-250' },
+// Auto-play sequence for demo
+const AUTO_LEGS = [
+  { gameId: 'g1', type: 'spread', team: 'away', desc: 'BOS +3.5 (-110)', matchup: 'BOS @ NYK', odds: -110 },
+  { gameId: 'g2', type: 'total', team: 'over', desc: 'Over 231 (-108)', matchup: 'LAL @ GSW', odds: -108 },
+  { gameId: 'g3', type: 'ml', team: 'home', desc: 'MIL ML (-250)', matchup: 'MIA @ MIL', odds: -250 },
 ]
 
 export default function LandingPage({ onAuth }) {
@@ -214,109 +241,260 @@ function FeatureCard({ icon, title, desc }) {
 }
 
 function DemoPreview() {
-  const [step, setStep] = useState(0)
   const [legs, setLegs] = useState([])
+  const [isAutoPlaying, setIsAutoPlaying] = useState(true)
+  const [autoStep, setAutoStep] = useState(0)
   const intervalRef = useRef(null)
 
-  useEffect(() => {
-    // Auto-advance through demo steps
-    intervalRef.current = setInterval(() => {
-      setStep(prev => {
-        const next = (prev + 1) % 6
-        // Steps: 0=show games, 1=pick leg 1, 2=pick leg 2, 3=pick leg 3, 4=show payout, 5=reset
-        if (next === 1) setLegs([DEMO_LEGS[0]])
-        else if (next === 2) setLegs([DEMO_LEGS[0], DEMO_LEGS[1]])
-        else if (next === 3) setLegs([DEMO_LEGS[0], DEMO_LEGS[1], DEMO_LEGS[2]])
-        else if (next === 5) setLegs([])
-        return next
-      })
-    }, 2000)
-
-    return () => clearInterval(intervalRef.current)
+  // Calculate parlay payout
+  const calcPayout = useCallback((currentLegs) => {
+    if (currentLegs.length === 0) return { odds: 0, payout: 0 }
+    const decimal = currentLegs.reduce((acc, leg) => {
+      const o = leg.odds
+      return acc * (o > 0 ? (o / 100) + 1 : (100 / Math.abs(o)) + 1)
+    }, 1)
+    const american = decimal >= 2 ? Math.round((decimal - 1) * 100) : Math.round(-100 / (decimal - 1))
+    return { odds: american, payout: (decimal * 10).toFixed(2) }
   }, [])
 
+  // Auto-play logic
+  useEffect(() => {
+    if (!isAutoPlaying) return
+    intervalRef.current = setInterval(() => {
+      setAutoStep(prev => {
+        const next = (prev + 1) % 7
+        if (next === 1) setLegs([AUTO_LEGS[0]])
+        else if (next === 2) setLegs([AUTO_LEGS[0], AUTO_LEGS[1]])
+        else if (next === 3) setLegs([AUTO_LEGS[0], AUTO_LEGS[1], AUTO_LEGS[2]])
+        // steps 4-5 show payout
+        else if (next === 6) setLegs([])
+        return next
+      })
+    }, 1800)
+    return () => clearInterval(intervalRef.current)
+  }, [isAutoPlaying])
+
+  // Stop auto-play on user interaction
+  const stopAutoPlay = () => {
+    if (isAutoPlaying) {
+      clearInterval(intervalRef.current)
+      setIsAutoPlaying(false)
+      setLegs([])
+    }
+  }
+
+  const resetDemo = () => {
+    setLegs([])
+    setAutoStep(0)
+    setIsAutoPlaying(true)
+  }
+
+  // Toggle a leg interactively
+  const toggleLeg = (gameId, type, team, desc, matchup, odds) => {
+    stopAutoPlay()
+    setLegs(prev => {
+      const exists = prev.find(l => l.gameId === gameId && l.type === type && l.team === team)
+      if (exists) return prev.filter(l => l !== exists)
+      // Replace same game+type with new pick
+      const filtered = prev.filter(l => !(l.gameId === gameId && l.type === type))
+      return [...filtered, { gameId, type, team, desc, matchup, odds }]
+    })
+  }
+
+  const isLegSelected = (gameId, type, team) => {
+    return legs.some(l => l.gameId === gameId && l.type === type && l.team === team)
+  }
+
+  const isGameTypeSelected = (gameId, type) => {
+    return legs.some(l => l.gameId === gameId && l.type === type)
+  }
+
+  const { odds: parlayOdds, payout } = calcPayout(legs)
+  const showPayout = isAutoPlaying ? autoStep >= 4 && legs.length > 0 : legs.length > 0
+
   return (
-    <div className="max-w-3xl mx-auto">
+    <div className="max-w-4xl mx-auto">
       <div className="bg-surface rounded-2xl border border-border overflow-hidden shadow-xl">
-        {/* Fake header */}
+        {/* Demo header */}
         <div className="px-5 py-3 border-b border-border flex items-center justify-between bg-overlay">
           <div className="flex items-center gap-2">
-            <div className="w-6 h-6 bg-gradient-to-br from-accent to-accent-light rounded-md" />
+            <Logo size={24} />
             <span className="text-fg font-bold text-sm">Slip<span className="text-accent">Mate</span></span>
           </div>
           <div className="flex items-center gap-2">
             {legs.length > 0 && (
               <span className="bg-accent/15 text-accent text-xs font-semibold px-2.5 py-1 rounded-full">
-                {legs.length} Picks
+                {legs.length} {legs.length === 1 ? 'Pick' : 'Picks'}
+              </span>
+            )}
+            {!isAutoPlaying && (
+              <button
+                onClick={resetDemo}
+                className="flex items-center gap-1 text-fg-subtle hover:text-fg text-[10px] font-medium px-2 py-1 rounded-md bg-surface border border-border cursor-pointer transition-colors"
+              >
+                <RotateCcw size={10} />
+                Replay
+              </button>
+            )}
+            {isAutoPlaying && (
+              <span className="text-accent text-[10px] font-medium flex items-center gap-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-accent animate-pulse" />
+                Auto-playing
               </span>
             )}
           </div>
         </div>
 
-        <div className="p-5 grid sm:grid-cols-[1fr_240px] gap-5">
+        <div className="p-4 sm:p-5 grid sm:grid-cols-[1fr_220px] gap-4 sm:gap-5">
           {/* Games column */}
-          <div className="space-y-2">
-            <p className="text-fg-subtle text-xs font-semibold uppercase tracking-wider mb-3">Today's Games</p>
-            {DEMO_GAMES.map((game, i) => {
-              const isSelected = legs.some(l => l.matchup.includes(game.away))
+          <div className="space-y-3">
+            <p className="text-fg-subtle text-[10px] font-semibold uppercase tracking-wider">Today's Games</p>
+            {DEMO_GAMES.map((game) => {
+              const gameSelected = legs.some(l => l.gameId === game.id)
               return (
-                <div key={i} className={`rounded-lg border p-3 transition-all ${isSelected ? 'border-accent/30 bg-accent/5' : 'border-border bg-overlay'}`}>
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <div className="w-5 h-5 rounded-full bg-fg-subtle/20" />
-                      <span className="text-fg text-xs font-semibold">{game.away} @ {game.home}</span>
-                    </div>
-                    <span className="text-green text-[10px] font-medium">FanDuel</span>
+                <div key={game.id} className={`rounded-xl border transition-all ${gameSelected ? 'border-accent/30 bg-accent/[0.03]' : 'border-border bg-overlay'}`}>
+                  {/* Game header */}
+                  <div className="px-3 py-2 flex items-center justify-between border-b border-border/50">
+                    <span className="text-fg-subtle text-[10px] font-medium">{game.time}</span>
+                    <span className="text-[10px] font-semibold uppercase tracking-wider text-fg-subtle">
+                      <span className="text-[9px]">SPREAD</span>
+                      <span className="mx-3 text-[9px]">TOTAL</span>
+                      <span className="text-[9px]">MONEY</span>
+                    </span>
                   </div>
-                  <div className="grid grid-cols-3 gap-1.5 mt-2">
-                    <div className={`text-center py-1.5 rounded text-[11px] font-semibold transition-all ${isSelected ? 'bg-accent/20 text-accent' : 'bg-surface text-fg-muted'}`}>
-                      {game.spread}
+
+                  {/* Away team row */}
+                  <div className="px-3 py-2 flex items-center justify-between">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <TeamLogo src={getTeamLogo(game.away)} abbr={game.away} size={20} />
+                      <div className="min-w-0">
+                        <span className="text-fg text-xs font-semibold block leading-tight">{game.awayFull}</span>
+                        <span className="text-fg-subtle text-[9px]">{game.away}</span>
+                      </div>
                     </div>
-                    <div className="text-center py-1.5 rounded bg-surface text-fg-muted text-[11px] font-semibold">
-                      {game.total}
+                    <div className="flex items-center gap-1.5">
+                      <DemoOddsCell
+                        selected={isLegSelected(game.id, 'spread', 'away')}
+                        highlighted={isGameTypeSelected(game.id, 'spread')}
+                        onClick={() => toggleLeg(game.id, 'spread', 'away', `${game.away} ${game.odds.spread.away.line} (${game.odds.spread.away.odds})`, `${game.away} @ ${game.home}`, game.odds.spread.away.odds)}
+                        top={game.odds.spread.away.line}
+                        bottom={game.odds.spread.away.odds}
+                      />
+                      <DemoOddsCell
+                        selected={isLegSelected(game.id, 'total', 'over')}
+                        highlighted={isGameTypeSelected(game.id, 'total')}
+                        onClick={() => toggleLeg(game.id, 'total', 'over', `${game.odds.total.over.line} (${game.odds.total.over.odds})`, `${game.away} @ ${game.home}`, game.odds.total.over.odds)}
+                        top={game.odds.total.over.line}
+                        bottom={game.odds.total.over.odds}
+                      />
+                      <DemoOddsCell
+                        selected={isLegSelected(game.id, 'ml', 'away')}
+                        highlighted={isGameTypeSelected(game.id, 'ml')}
+                        onClick={() => toggleLeg(game.id, 'ml', 'away', `${game.away} ML (${game.odds.ml.away.odds})`, `${game.away} @ ${game.home}`, game.odds.ml.away.odds)}
+                        top={game.odds.ml.away.line}
+                        bottom={game.odds.ml.away.odds}
+                        isMl
+                      />
                     </div>
-                    <div className="text-center py-1.5 rounded bg-surface text-fg-muted text-[11px] font-semibold">
-                      {game.ml}
+                  </div>
+
+                  {/* Home team row */}
+                  <div className="px-3 py-2 flex items-center justify-between border-t border-border/30">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <TeamLogo src={getTeamLogo(game.home)} abbr={game.home} size={20} />
+                      <div className="min-w-0">
+                        <span className="text-fg text-xs font-semibold block leading-tight">{game.homeFull}</span>
+                        <span className="text-fg-subtle text-[9px]">{game.home}</span>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <DemoOddsCell
+                        selected={isLegSelected(game.id, 'spread', 'home')}
+                        highlighted={isGameTypeSelected(game.id, 'spread')}
+                        onClick={() => toggleLeg(game.id, 'spread', 'home', `${game.home} ${game.odds.spread.home.line} (${game.odds.spread.home.odds})`, `${game.away} @ ${game.home}`, game.odds.spread.home.odds)}
+                        top={game.odds.spread.home.line}
+                        bottom={game.odds.spread.home.odds}
+                      />
+                      <DemoOddsCell
+                        selected={isLegSelected(game.id, 'total', 'under')}
+                        highlighted={isGameTypeSelected(game.id, 'total')}
+                        onClick={() => toggleLeg(game.id, 'total', 'under', `${game.odds.total.under.line} (${game.odds.total.under.odds})`, `${game.away} @ ${game.home}`, game.odds.total.under.odds)}
+                        top={game.odds.total.under.line}
+                        bottom={game.odds.total.under.odds}
+                      />
+                      <DemoOddsCell
+                        selected={isLegSelected(game.id, 'ml', 'home')}
+                        highlighted={isGameTypeSelected(game.id, 'ml')}
+                        onClick={() => toggleLeg(game.id, 'ml', 'home', `${game.home} ML (${game.odds.ml.home.odds})`, `${game.away} @ ${game.home}`, game.odds.ml.home.odds)}
+                        top={game.odds.ml.home.line}
+                        bottom={game.odds.ml.home.odds}
+                        isMl
+                      />
                     </div>
                   </div>
                 </div>
               )
             })}
+            {!isAutoPlaying && (
+              <p className="text-fg-subtle text-[10px] text-center pt-1">Tap any odds cell to build a parlay</p>
+            )}
           </div>
 
           {/* Slip column */}
-          <div className="bg-overlay rounded-xl border border-border p-4">
-            <div className="flex items-center gap-2 mb-3">
-              <div className="w-1.5 h-1.5 rounded-full bg-accent animate-pulse" />
-              <span className="text-fg text-xs font-bold">Parlay Slip</span>
-              {legs.length > 0 && (
-                <span className="text-fg-subtle text-[10px]">• {legs.length} legs</span>
+          <div className="bg-overlay rounded-xl border border-border p-3 self-start">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-1.5">
+                <div className="w-1.5 h-1.5 rounded-full bg-accent animate-pulse" />
+                <span className="text-fg text-[11px] font-bold">Parlay Slip</span>
+                {legs.length > 0 && (
+                  <span className="text-fg-subtle text-[9px]">• {legs.length} {legs.length === 1 ? 'leg' : 'legs'}</span>
+                )}
+              </div>
+              {legs.length > 0 && !isAutoPlaying && (
+                <button
+                  onClick={() => setLegs([])}
+                  className="text-fg-subtle hover:text-accent text-[10px] cursor-pointer transition-colors"
+                  title="Clear all"
+                >
+                  Clear
+                </button>
               )}
             </div>
 
             {legs.length === 0 ? (
-              <div className="text-center py-6">
-                <p className="text-fg-subtle text-[11px]">Tap odds to add legs</p>
+              <div className="text-center py-8">
+                <span className="text-2xl">🎯</span>
+                <p className="text-fg-subtle text-[10px] mt-2">Tap odds to add legs</p>
               </div>
             ) : (
-              <div className="space-y-2">
+              <div className="space-y-1.5">
                 {legs.map((leg, i) => (
-                  <div key={i} className="bg-surface rounded-lg p-2.5 border border-border animate-[fadeIn_0.3s_ease-out]">
-                    <p className="text-fg text-[11px] font-semibold">{leg.desc}</p>
-                    <p className="text-fg-subtle text-[9px] mt-0.5">{leg.matchup}</p>
+                  <div key={`${leg.gameId}-${leg.type}-${leg.team}`} className="bg-surface rounded-lg p-2 border border-border animate-[fadeIn_0.3s_ease-out] flex items-start justify-between gap-1">
+                    <div className="min-w-0">
+                      <p className="text-fg text-[10px] font-semibold leading-tight">{leg.desc}</p>
+                      <p className="text-fg-subtle text-[8px] mt-0.5">{leg.matchup}</p>
+                    </div>
+                    {!isAutoPlaying && (
+                      <button
+                        onClick={() => setLegs(prev => prev.filter(l => l !== leg))}
+                        className="text-fg-subtle hover:text-accent cursor-pointer shrink-0 mt-0.5"
+                      >
+                        <X size={10} />
+                      </button>
+                    )}
                   </div>
                 ))}
 
-                {step >= 4 && (
-                  <div className="bg-gradient-to-r from-green/10 to-accent/5 rounded-lg p-3 border border-green/10 mt-3 animate-[fadeIn_0.3s_ease-out]">
-                    <div className="flex items-end justify-between">
+                {showPayout && (
+                  <div className="bg-gradient-to-r from-green/10 to-accent/5 rounded-lg p-2.5 border border-green/10 mt-2 animate-[fadeIn_0.3s_ease-out]">
+                    <div className="flex items-center justify-between">
                       <div>
-                        <p className="text-fg-subtle text-[9px] font-semibold uppercase">Payout</p>
-                        <p className="text-green font-bold text-lg">$84.20</p>
+                        <p className="text-fg-subtle text-[8px] font-semibold uppercase">Wager $10</p>
+                        <p className="text-green font-bold text-base leading-tight">${payout}</p>
                       </div>
                       <div className="text-right">
-                        <p className="text-fg-subtle text-[9px] font-semibold uppercase">Odds</p>
-                        <p className="text-accent font-bold text-sm">+742</p>
+                        <p className="text-fg-subtle text-[8px] font-semibold uppercase">Odds</p>
+                        <p className="text-accent font-bold text-sm leading-tight">{parlayOdds > 0 ? '+' : ''}{parlayOdds}</p>
                       </div>
                     </div>
                   </div>
@@ -326,14 +504,42 @@ function DemoPreview() {
           </div>
         </div>
 
-        {/* Step indicator */}
-        <div className="px-5 py-3 border-t border-border flex items-center justify-center gap-1.5">
-          {[0, 1, 2, 3, 4, 5].map(i => (
-            <div key={i} className={`w-1.5 h-1.5 rounded-full transition-colors ${step === i ? 'bg-accent' : 'bg-fg-subtle/30'}`} />
-          ))}
+        {/* Bottom bar */}
+        <div className="px-5 py-2.5 border-t border-border flex items-center justify-between">
+          <p className="text-fg-subtle text-[10px]">
+            {isAutoPlaying ? 'Click any odds cell to try it yourself' : 'Interactive demo — sign up for the full experience'}
+          </p>
+          {isAutoPlaying && (
+            <div className="flex items-center gap-1.5">
+              {[0, 1, 2, 3, 4, 5, 6].map(i => (
+                <div key={i} className={`w-1 h-1 rounded-full transition-colors ${autoStep === i ? 'bg-accent' : 'bg-fg-subtle/30'}`} />
+              ))}
+            </div>
+          )}
         </div>
       </div>
     </div>
+  )
+}
+
+function DemoOddsCell({ selected, highlighted, onClick, top, bottom, isMl }) {
+  const isPositive = typeof bottom === 'number' ? bottom > 0 : String(bottom).startsWith('+')
+  return (
+    <button
+      onClick={onClick}
+      className={`w-[60px] py-1.5 rounded-md text-center transition-all cursor-pointer border
+        ${selected
+          ? 'bg-accent/20 border-accent/40 ring-1 ring-accent/20'
+          : highlighted
+            ? 'bg-surface-lighter border-border-hover'
+            : 'bg-surface border-transparent hover:bg-surface-light hover:border-border-hover'
+        }`}
+    >
+      <p className={`text-[10px] font-semibold leading-tight ${selected ? 'text-accent' : 'text-fg'}`}>{top}</p>
+      <p className={`text-[9px] font-medium leading-tight mt-0.5 ${selected ? 'text-accent' : isMl && isPositive ? 'text-green' : 'text-fg-muted'}`}>
+        {typeof bottom === 'number' ? (bottom > 0 ? `+${bottom}` : bottom) : bottom}
+      </p>
+    </button>
   )
 }
 
