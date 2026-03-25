@@ -2,7 +2,9 @@ import { useState, useEffect } from 'react'
 import { useAuth } from '../hooks/useAuth'
 import { getUserParlays, updateParlayStatus, deleteParlay } from '../lib/parlayService'
 import { formatOdds, formatCurrency, calculateParlayOdds, calculatePayout } from '../utils/odds'
-import { ArrowLeft, Bookmark, CheckCircle, XCircle, Trash2, LogOut, User, Clock, Trophy, TrendingDown } from 'lucide-react'
+import { fetchCompletedScores } from '../data/scoresApi'
+import { checkParlayResult } from '../utils/resultChecker'
+import { ArrowLeft, Bookmark, CheckCircle, XCircle, Trash2, LogOut, User, Clock, Trophy, TrendingDown, RefreshCw, Check, X } from 'lucide-react'
 
 const STATUS_CONFIG = {
   saved: { label: 'Saved', icon: Bookmark, color: 'text-fg-muted', bg: 'bg-overlay' },
@@ -16,6 +18,9 @@ export default function ProfilePage({ onBack }) {
   const [parlays, setParlays] = useState([])
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState('all')
+  const [checking, setChecking] = useState(false)
+  const [resultMap, setResultMap] = useState({}) // parlayId -> { allHit, anyMissed, results, pending }
+  const [checkError, setCheckError] = useState(null)
 
   useEffect(() => {
     if (user) loadParlays()
@@ -38,6 +43,41 @@ export default function ProfilePage({ onBack }) {
   async function handleDelete(parlayId) {
     await deleteParlay(parlayId)
     setParlays(prev => prev.filter(p => p.id !== parlayId))
+  }
+
+  async function handleCheckResults() {
+    setChecking(true)
+    setCheckError(null)
+    try {
+      const completedScores = await fetchCompletedScores()
+      const placedParlays = parlays.filter(p => p.status === 'placed')
+      const newResultMap = {}
+
+      for (const parlay of placedParlays) {
+        const result = checkParlayResult(parlay.legs || [], completedScores)
+        newResultMap[parlay.id] = result
+
+        // Auto-update status if we can determine the outcome
+        if (result.allHit) {
+          await updateParlayStatus(parlay.id, 'won')
+          setParlays(prev =>
+            prev.map(p => p.id === parlay.id ? { ...p, status: 'won' } : p)
+          )
+        } else if (result.anyMissed) {
+          await updateParlayStatus(parlay.id, 'lost')
+          setParlays(prev =>
+            prev.map(p => p.id === parlay.id ? { ...p, status: 'lost' } : p)
+          )
+        }
+      }
+
+      setResultMap(newResultMap)
+    } catch (err) {
+      console.error('Failed to check results:', err)
+      setCheckError(err.message)
+    } finally {
+      setChecking(false)
+    }
   }
 
   const filteredParlays = filter === 'all'
@@ -115,6 +155,22 @@ export default function ProfilePage({ onBack }) {
           ))}
         </div>
 
+        {stats.placed > 0 && (
+          <div className="mb-4">
+            <button
+              onClick={handleCheckResults}
+              disabled={checking}
+              className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-accent to-orange-500 text-white py-2.5 rounded-xl text-sm font-semibold cursor-pointer hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <RefreshCw size={15} className={checking ? 'animate-spin' : ''} />
+              {checking ? 'Checking Scores...' : `Check Results (${stats.placed} placed)`}
+            </button>
+            {checkError && (
+              <p className="text-accent text-xs mt-1.5 text-center">{checkError}</p>
+            )}
+          </div>
+        )}
+
         {loading ? (
           <div className="text-center py-12 text-fg-subtle text-sm">Loading your parlays...</div>
         ) : filteredParlays.length === 0 ? (
@@ -137,6 +193,7 @@ export default function ProfilePage({ onBack }) {
                 parlay={parlay}
                 onStatusChange={handleStatusChange}
                 onDelete={handleDelete}
+                legResults={resultMap[parlay.id]?.results}
               />
             ))}
           </div>
@@ -155,7 +212,7 @@ function StatBox({ label, value, color = 'text-fg' }) {
   )
 }
 
-function ParlayCard({ parlay, onStatusChange, onDelete }) {
+function ParlayCard({ parlay, onStatusChange, onDelete, legResults }) {
   const [expanded, setExpanded] = useState(false)
   const config = STATUS_CONFIG[parlay.status] || STATUS_CONFIG.saved
   const StatusIcon = config.icon
@@ -190,17 +247,37 @@ function ParlayCard({ parlay, onStatusChange, onDelete }) {
       {expanded && (
         <div className="border-t border-border">
           <div className="divide-y divide-border">
-            {parlay.legs?.map((leg, i) => (
-              <div key={i} className="px-4 py-2.5 flex items-center justify-between">
-                <div className="min-w-0">
-                  <p className="text-fg text-[13px] font-medium truncate">{leg.description}</p>
-                  <p className="text-fg-subtle text-[11px]">{leg.awayAbbr} @ {leg.homeAbbr}</p>
+            {parlay.legs?.map((leg, i) => {
+              const result = legResults?.[i]
+              return (
+                <div key={i} className="px-4 py-2.5 flex items-center justify-between">
+                  <div className="flex items-center gap-2 min-w-0">
+                    {result && !result.pending && (
+                      result.hit
+                        ? <Check size={14} className="text-green shrink-0" />
+                        : <X size={14} className="text-accent shrink-0" />
+                    )}
+                    {result?.pending && (
+                      <Clock size={14} className="text-fg-subtle shrink-0" />
+                    )}
+                    <div className="min-w-0">
+                      <p className="text-fg text-[13px] font-medium truncate">{leg.description}</p>
+                      <div className="flex items-center gap-2">
+                        <p className="text-fg-subtle text-[11px]">{leg.awayAbbr} @ {leg.homeAbbr}</p>
+                        {result && (
+                          <p className={`text-[11px] font-medium ${result.hit ? 'text-green' : result.pending ? 'text-fg-subtle' : 'text-accent'}`}>
+                            {result.score}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                  <span className="text-accent text-[13px] font-bold shrink-0 ml-2">
+                    {formatOdds(leg.odds)}
+                  </span>
                 </div>
-                <span className="text-accent text-[13px] font-bold shrink-0 ml-2">
-                  {formatOdds(leg.odds)}
-                </span>
-              </div>
-            ))}
+              )
+            })}
           </div>
 
           <div className="px-4 py-3 border-t border-border flex items-center justify-between text-sm">
